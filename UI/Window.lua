@@ -1,5 +1,5 @@
 --[=[
-    XLORENs - UI Window (corregido)
+    XLORENs - UI Window (versión estable)
 ]=]
 
 local UI = {}
@@ -63,28 +63,6 @@ function UI:CreateWindow(config)
     content.CanvasSize = UDim2.new(0, 0, 0, 0)
     content.Parent = tabContainer
 
-    -- Función segura para obtener la posición del mouse
-    local function getMousePosition()
-        local success, result = pcall(function()
-            local UIS = game:GetService("UserInputService")
-            if UIS.GetMouseLocation then
-                return UIS:GetMouseLocation()
-            elseif UIS.GetMousePosition then
-                return UIS:GetMousePosition()
-            else
-                -- Fallback: usar el mouse de Players
-                local mouse = player:GetMouse()
-                if mouse and mouse.X and mouse.Y then
-                    return Vector2.new(mouse.X, mouse.Y)
-                end
-            end
-        end)
-        if success and result then
-            return result
-        end
-        return Vector2.new(0, 0)
-    end
-
     local function AddTab(name)
         local tab = { Name = name, Elements = {} }
 
@@ -119,6 +97,7 @@ function UI:CreateWindow(config)
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Parent = frame
 
+        -- Toggle
         function tab:AddToggle(text, callback)
             local active = false
             local frame2 = Instance.new("Frame")
@@ -168,13 +147,11 @@ function UI:CreateWindow(config)
                 if callback then pcall(callback, active) end
             end
 
-            btn2.MouseButton1Click:Connect(function()
-                setState(not active)
-            end)
-
+            btn2.MouseButton1Click:Connect(function() setState(not active) end)
             return { Set = setState, Get = function() return active end }
         end
 
+        -- Slider
         function tab:AddSlider(text, min, max, default, callback)
             local value = default or min
             local frame2 = Instance.new("Frame")
@@ -221,8 +198,8 @@ function UI:CreateWindow(config)
 
             local dragging = false
             local function update()
-                local mousePos = getMousePosition()
-                local m = math.clamp((mousePos.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+                local mouse = game:GetService("UserInputService"):GetMouseLocation()
+                local m = math.clamp((mouse.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
                 value = math.floor(min + (m * (max - min)))
                 label.Text = text .. ": " .. value
                 fill.Size = UDim2.new(m, 0, 1, 0)
@@ -252,6 +229,7 @@ function UI:CreateWindow(config)
             return { Set = function(v) value = v; label.Text = text .. ": " .. value end }
         end
 
+        -- Keybind
         function tab:AddKeybind(text, defaultKey, callback)
             local key = defaultKey or "None"
             local binding = false
@@ -309,6 +287,7 @@ function UI:CreateWindow(config)
             return { GetKey = function() return key end }
         end
 
+        -- Label
         function tab:AddLabel(text)
             local lbl = Instance.new("TextLabel")
             lbl.Size = UDim2.new(1, -10, 0, 28)
@@ -322,6 +301,7 @@ function UI:CreateWindow(config)
             return lbl
         end
 
+        -- Dropdown (simple)
         function tab:AddDropdown(text, options, default, callback)
             local selected = default or options[1] or ""
             local open = false
@@ -404,10 +384,7 @@ function UI:CreateWindow(config)
                 optBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
                 optBtn.AutoButtonColor = false
                 optBtn.Parent = scroll
-
-                optBtn.MouseButton1Click:Connect(function()
-                    selectOption(opt)
-                end)
+                optBtn.MouseButton1Click:Connect(function() selectOption(opt) end)
             end
             updateDropdownHeight()
 
@@ -427,6 +404,7 @@ function UI:CreateWindow(config)
             }
         end
 
+        -- Modo selector
         function tab:AddModeSelector(text, modes, defaultMode, callback)
             local selected = defaultMode or modes[1] or "Siempre"
             local bindKey = "None"
@@ -469,7 +447,6 @@ function UI:CreateWindow(config)
                 btn.AutoButtonColor = false
                 btn.Parent = modeContainer
                 Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-
                 btn.MouseButton1Click:Connect(function()
                     selected = modeName
                     for _, b in ipairs(modeButtons) do
@@ -478,7 +455,6 @@ function UI:CreateWindow(config)
                     btn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
                     if callback then pcall(callback, selected, bindKey) end
                 end)
-
                 table.insert(modeButtons, btn)
             end
 
@@ -536,7 +512,6 @@ function UI:CreateWindow(config)
             AddDropdown = tab.AddDropdown,
             AddModeSelector = tab.AddModeSelector,
         }
-
         return tab
     end
 
