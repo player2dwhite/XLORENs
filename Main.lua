@@ -26,10 +26,15 @@ local config = {
     aimMode = "Siempre",
     aimBind = "X",
     aimPart = "Head",
-    aimFOV = 200,
+    aimFOV = 30,                -- Cambiado a 30 (rango 10-50)
     aimSmooth = 65,
     aimVisibleOnly = true,
     aimLockTime = 0.35,
+
+    -- Círculo FOV
+    circleColor = Color3.fromRGB(255, 0, 0),
+    circleThickness = 2,
+    circleTransparency = 0.7,
 
     -- Trigger
     trigMode = "Nunca",
@@ -75,8 +80,8 @@ local partDropdown = aimTab:AddDropdown("Parte", {"Head", "UpperTorso", "Humanoi
     XLORENs.Aimbot.Settings.Part = v
 end)
 
--- FOV slider
-aimTab:AddSlider("FOV (pixels)", 10, 500, config.aimFOV, function(v)
+-- FOV slider (rango 10-50)
+aimTab:AddSlider("FOV (pixels)", 10, 50, config.aimFOV, function(v)
     config.aimFOV = v
     XLORENs.Aimbot.Settings.FOV = v
     XLORENs.Aimbot:CreateFOVCircle()
@@ -116,6 +121,48 @@ aimTab:AddToggle("Mostrar FOV", function(v)
     end
 end)
 
+-- ===== CONTROLES DEL CÍRCULO FOV =====
+aimTab:AddSeparator()
+aimTab:AddLabel("=== Círculo FOV ===")
+
+-- Color del círculo (RGB)
+local circleR = aimTab:AddSlider("R", 0, 255, 255, function(v)
+    config.circleColor = Color3.fromRGB(v, circleG.Get(), circleB.Get())
+    if XLORENs.Aimbot._fovCircle then
+        XLORENs.Aimbot._fovCircle.Color = config.circleColor
+    end
+end)
+
+local circleG = aimTab:AddSlider("G", 0, 255, 0, function(v)
+    config.circleColor = Color3.fromRGB(circleR.Get(), v, circleB.Get())
+    if XLORENs.Aimbot._fovCircle then
+        XLORENs.Aimbot._fovCircle.Color = config.circleColor
+    end
+end)
+
+local circleB = aimTab:AddSlider("B", 0, 255, 0, function(v)
+    config.circleColor = Color3.fromRGB(circleR.Get(), circleG.Get(), v)
+    if XLORENs.Aimbot._fovCircle then
+        XLORENs.Aimbot._fovCircle.Color = config.circleColor
+    end
+end)
+
+-- Grosor del círculo
+aimTab:AddSlider("Grosor", 1, 10, config.circleThickness, function(v)
+    config.circleThickness = v
+    if XLORENs.Aimbot._fovCircle then
+        XLORENs.Aimbot._fovCircle.Thickness = v
+    end
+end)
+
+-- Transparencia del círculo
+aimTab:AddSlider("Transparencia", 0, 100, 70, function(v)
+    config.circleTransparency = v / 100
+    if XLORENs.Aimbot._fovCircle then
+        XLORENs.Aimbot._fovCircle.Transparency = config.circleTransparency
+    end
+end)
+
 -- ===== Pestaña Trigger =====
 local trigTab = window:AddTab("Trigger")
 
@@ -142,22 +189,22 @@ end)
 
 -- Color picker simplificado (usaremos un slider de color)
 espTab:AddLabel("Color (R,G,B)")
-local colorR = espTab:AddSlider("Rojo", 0, 255, 0, function(v)
-    config.espColor = Color3.fromRGB(v, colorG.Get(), colorB.Get())
+local espColorR = espTab:AddSlider("Rojo", 0, 255, 0, function(v)
+    config.espColor = Color3.fromRGB(v, espColorG.Get(), espColorB.Get())
     if XLORENs.Chams then
         XLORENs.Chams.Settings.Color = config.espColor
         XLORENs.Chams:UpdateAll()
     end
 end)
-local colorG = espTab:AddSlider("Verde", 0, 255, 255, function(v)
-    config.espColor = Color3.fromRGB(colorR.Get(), v, colorB.Get())
+local espColorG = espTab:AddSlider("Verde", 0, 255, 255, function(v)
+    config.espColor = Color3.fromRGB(espColorR.Get(), v, espColorB.Get())
     if XLORENs.Chams then
         XLORENs.Chams.Settings.Color = config.espColor
         XLORENs.Chams:UpdateAll()
     end
 end)
-local colorB = espTab:AddSlider("Azul", 0, 255, 0, function(v)
-    config.espColor = Color3.fromRGB(colorR.Get(), colorG.Get(), v)
+local espColorB = espTab:AddSlider("Azul", 0, 255, 0, function(v)
+    config.espColor = Color3.fromRGB(espColorR.Get(), espColorG.Get(), v)
     if XLORENs.Chams then
         XLORENs.Chams.Settings.Color = config.espColor
         XLORENs.Chams:UpdateAll()
