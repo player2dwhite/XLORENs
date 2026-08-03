@@ -1,6 +1,6 @@
 --[=[
     XLORENs - Aimbot
-    Solo controla la cámara. Recibe el objetivo del TargetManager.
+    Controlador de cámara con modos (Siempre, Por bind, Nunca) y FOV circle.
 ]=]
 
 local Aimbot = {}
@@ -11,7 +11,12 @@ function Aimbot:Init(framework)
     self.TargetManager = framework.TargetManager
     self.Settings = {
         Enabled = false,
-        Key = "T",
+        Mode = "Siempre",        -- "Siempre", "Por bind", "Nunca"
+        BindKey = "X",
+        Part = "Head",
+        FOV = 200,               -- en píxeles
+        ShowFOV = true,
+        VisibleOnly = true,
         Smooth = true,
         SmoothAmount = 65,
         TrackingInertia = 0.20,
@@ -24,11 +29,56 @@ function Aimbot:Init(framework)
     self._recoilOffset = Vector2.new(0, 0)
     self._lastShotTime = 0
     self._active = false
+    self._fovCircle = nil
+    self._fovConnection = nil
     return self
 end
 
+function Aimbot:ShouldAim()
+    if not self.Settings.Enabled then return false end
+    if self.Settings.Mode == "Nunca" then return false end
+    if self.Settings.Mode == "Siempre" then return true end
+    if self.Settings.Mode == "Por bind" then
+        local key = Enum.KeyCode[self.Settings.BindKey]
+        return game:GetService("UserInputService"):IsKeyDown(key)
+    end
+    return false
+end
+
+function Aimbot:CreateFOVCircle()
+    if self._fovCircle then
+        pcall(function() self._fovCircle:Remove() end)
+        self._fovCircle = nil
+    end
+    if not self.Settings.ShowFOV then return end
+
+    self._fovCircle = Drawing.new("Circle")
+    self._fovCircle.Visible = true
+    self._fovCircle.Thickness = 1.5
+    self._fovCircle.Transparency = 0.7
+    self._fovCircle.ZIndex = 10
+    self._fovCircle.Filled = false
+    self._fovCircle.NumSides = 64
+    self._fovCircle.Color = Color3.fromRGB(255, 0, 0)
+
+    if self._fovConnection then self._fovConnection:Disconnect() end
+    self._fovConnection = game:GetService("RunService").RenderStepped:Connect(function()
+        if not self._fovCircle or not self.Settings.ShowFOV or not self.Settings.Enabled then
+            if self._fovCircle then self._fovCircle.Visible = false end
+            return
+        end
+        local mouse = game:GetService("UserInputService"):GetMouseLocation()
+        self._fovCircle.Position = Vector2.new(mouse.X, mouse.Y)
+        self._fovCircle.Radius = self.Settings.FOV
+        self._fovCircle.Visible = true
+    end)
+end
+
 function Aimbot:Update()
-    if not self.Settings.Enabled then return end
+    if not self.Settings.Enabled then
+        if self._fovCircle then self._fovCircle.Visible = false end
+        return
+    end
 
     local cam = workspace.CurrentCamera
     if not cam then return end
@@ -49,6 +99,16 @@ function Aimbot:Update()
 
     local screenPos, onScreen = cam:WorldToScreenPoint(targetPos)
     if not onScreen then return end
+
+    -- FOV check
+    if self.Settings.FOV > 0 then
+        local mouse = game:GetService("UserInputService"):GetMouseLocation()
+        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mouse).Magnitude
+        if dist > self.Settings.FOV then
+            self._lastAimPos = nil
+            return
+        end
+    end
 
     local aimScreen = Vector2.new(screenPos.X + recoil.X, screenPos.Y + recoil.Y)
 
@@ -109,6 +169,7 @@ end
 function Aimbot:Enable()
     self.Settings.Enabled = true
     self._active = true
+    self:CreateFOVCircle()
 end
 
 function Aimbot:Disable()
@@ -116,15 +177,14 @@ function Aimbot:Disable()
     self._active = false
     self._lastAimPos = nil
     self._recoilOffset = Vector2.new(0, 0)
-end
-
-function Aimbot:Toggle()
-    if self.Settings.Enabled then
-        self:Disable()
-    else
-        self:Enable()
+    if self._fovCircle then
+        pcall(function() self._fovCircle:Remove() end)
+        self._fovCircle = nil
     end
-    return self.Settings.Enabled
+    if self._fovConnection then
+        self._fovConnection:Disconnect()
+        self._fovConnection = nil
+    end
 end
 
 return Aimbot
