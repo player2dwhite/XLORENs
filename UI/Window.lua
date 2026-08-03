@@ -1,6 +1,6 @@
 --[=[
     XLORENs - UI Window
-    Sistema de ventana minimalista con tabs, toggles, sliders y keybinds.
+    Sistema de ventana con tabs, toggles, sliders, keybinds, dropdowns y modos.
 ]=]
 
 local UI = {}
@@ -103,7 +103,17 @@ function UI:CreateWindow(config)
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Parent = frame
 
-        -- Funciones para añadir elementos
+        -- Función para crear un separador
+        function tab:AddSeparator()
+            local sep = Instance.new("Frame")
+            sep.Size = UDim2.new(1, -10, 0, 2)
+            sep.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+            sep.BorderSizePixel = 0
+            sep.Parent = frame
+            return sep
+        end
+
+        -- Toggle
         function tab:AddToggle(text, callback)
             local active = false
 
@@ -161,6 +171,7 @@ function UI:CreateWindow(config)
             return { Set = setState, Get = function() return active end }
         end
 
+        -- Slider
         function tab:AddSlider(text, min, max, default, callback)
             local value = default or min
 
@@ -239,6 +250,7 @@ function UI:CreateWindow(config)
             return { Set = function(v) value = v; label.Text = text .. ": " .. value end }
         end
 
+        -- Keybind
         function tab:AddKeybind(text, defaultKey, callback)
             local key = defaultKey or "None"
             local binding = false
@@ -297,6 +309,7 @@ function UI:CreateWindow(config)
             return { GetKey = function() return key end }
         end
 
+        -- Label
         function tab:AddLabel(text)
             local lbl = Instance.new("TextLabel")
             lbl.Size = UDim2.new(1, -10, 0, 28)
@@ -310,6 +323,213 @@ function UI:CreateWindow(config)
             return lbl
         end
 
+        -- Dropdown (selector de opciones)
+        function tab:AddDropdown(text, options, default, callback)
+            local selected = default or options[1] or ""
+            local open = false
+
+            local frame2 = Instance.new("Frame")
+            frame2.Size = UDim2.new(1, -5, 0, 44)
+            frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+            frame2.BorderSizePixel = 0
+            frame2.ClipsDescendants = false
+            frame2.Parent = frame
+            Instance.new("UICorner", frame2).CornerRadius = UDim.new(0, 8)
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(0, 100, 1, 0)
+            label.Position = UDim2.new(0, 12, 0, 0)
+            label.BackgroundTransparency = 1
+            label.Text = text
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 13
+            label.TextColor3 = Color3.fromRGB(220, 220, 235)
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Parent = frame2
+
+            local btn2 = Instance.new("TextButton")
+            btn2.Size = UDim2.new(1, -120, 0, 28)
+            btn2.Position = UDim2.new(0, 105, 0.5, -14)
+            btn2.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+            btn2.Text = selected
+            btn2.Font = Enum.Font.GothamBold
+            btn2.TextSize = 11
+            btn2.TextColor3 = Color3.fromRGB(255, 255, 255)
+            btn2.AutoButtonColor = false
+            btn2.Parent = frame2
+            Instance.new("UICorner", btn2).CornerRadius = UDim.new(0, 6)
+
+            local dropdownFrame = Instance.new("Frame")
+            dropdownFrame.Size = UDim2.new(1, -105, 0, 0)
+            dropdownFrame.Position = UDim2.new(0, 105, 0, 32)
+            dropdownFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+            dropdownFrame.BorderSizePixel = 0
+            dropdownFrame.ClipsDescendants = true
+            dropdownFrame.Visible = false
+            dropdownFrame.Parent = frame2
+            Instance.new("UICorner", dropdownFrame).CornerRadius = UDim.new(0, 6)
+
+            local scroll = Instance.new("ScrollingFrame")
+            scroll.Size = UDim2.new(1, 0, 1, 0)
+            scroll.BackgroundTransparency = 1
+            scroll.ScrollBarThickness = 2
+            scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+            scroll.Parent = dropdownFrame
+
+            local layout2 = Instance.new("UIListLayout")
+            layout2.Padding = UDim.new(0, 2)
+            layout2.SortOrder = Enum.SortOrder.LayoutOrder
+            layout2.Parent = scroll
+
+            local function updateDropdownHeight()
+                local count = #scroll:GetChildren()
+                local height = math.min(count * 26 + 4, 120)
+                dropdownFrame.Size = UDim2.new(1, -105, 0, height)
+            end
+
+            local function selectOption(option)
+                selected = option
+                btn2.Text = option
+                dropdownFrame.Visible = false
+                open = false
+                if callback then callback(option) end
+            end
+
+            for _, opt in ipairs(options) do
+                local optBtn = Instance.new("TextButton")
+                optBtn.Size = UDim2.new(1, -4, 0, 24)
+                optBtn.Position = UDim2.new(0, 2, 0, 0)
+                optBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+                optBtn.Text = opt
+                optBtn.Font = Enum.Font.GothamBold
+                optBtn.TextSize = 11
+                optBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+                optBtn.AutoButtonColor = false
+                optBtn.Parent = scroll
+
+                optBtn.MouseButton1Click:Connect(function()
+                    selectOption(opt)
+                end)
+            end
+            updateDropdownHeight()
+
+            btn2.MouseButton1Click:Connect(function()
+                open = not open
+                dropdownFrame.Visible = open
+                if open then
+                    updateDropdownHeight()
+                    dropdownFrame.Size = UDim2.new(1, -105, 0, 0)
+                    dropdownFrame.Size = UDim2.new(1, -105, 0, math.min(#options * 26 + 4, 120))
+                end
+            end)
+
+            return {
+                Set = function(opt) selectOption(opt) end,
+                Get = function() return selected end
+            }
+        end
+
+        -- Modo selector (Siempre, Por bind, Nunca)
+        function tab:AddModeSelector(text, modes, defaultMode, callback)
+            local selected = defaultMode or modes[1] or "Siempre"
+            local bindKey = "None"
+            local binding = false
+
+            local frame2 = Instance.new("Frame")
+            frame2.Size = UDim2.new(1, -5, 0, 90)
+            frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+            frame2.BorderSizePixel = 0
+            frame2.Parent = frame
+            Instance.new("UICorner", frame2).CornerRadius = UDim.new(0, 8)
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, -12, 0, 22)
+            label.Position = UDim2.new(0, 12, 0, 6)
+            label.BackgroundTransparency = 1
+            label.Text = text
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 13
+            label.TextColor3 = Color3.fromRGB(220, 220, 235)
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Parent = frame2
+
+            local modeContainer = Instance.new("Frame")
+            modeContainer.Size = UDim2.new(1, -24, 0, 24)
+            modeContainer.Position = UDim2.new(0, 12, 0, 32)
+            modeContainer.BackgroundTransparency = 1
+            modeContainer.Parent = frame2
+
+            local modeButtons = {}
+            for i, modeName in ipairs(modes) do
+                local btn = Instance.new("TextButton")
+                btn.Size = UDim2.new(1/#modes, -2, 1, 0)
+                btn.Position = UDim2.new((i-1)/#modes, 1, 0, 0)
+                btn.BackgroundColor3 = (modeName == selected) and Color3.fromRGB(60, 120, 200) or Color3.fromRGB(40, 40, 50)
+                btn.Text = modeName
+                btn.Font = Enum.Font.GothamBold
+                btn.TextSize = 11
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                btn.AutoButtonColor = false
+                btn.Parent = modeContainer
+                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+                btn.MouseButton1Click:Connect(function()
+                    selected = modeName
+                    for _, b in ipairs(modeButtons) do
+                        b.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+                    end
+                    btn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
+                    if callback then callback(selected, bindKey) end
+                end)
+
+                table.insert(modeButtons, btn)
+            end
+
+            -- Bind key button
+            local bindBtn = Instance.new("TextButton")
+            bindBtn.Size = UDim2.new(0.6, 0, 0, 24)
+            bindBtn.Position = UDim2.new(0, 12, 0, 60)
+            bindBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+            bindBtn.Text = "Bind: " .. bindKey
+            bindBtn.Font = Enum.Font.GothamBold
+            bindBtn.TextSize = 11
+            bindBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            bindBtn.AutoButtonColor = false
+            bindBtn.Parent = frame2
+            Instance.new("UICorner", bindBtn).CornerRadius = UDim.new(0, 4)
+
+            bindBtn.MouseButton1Click:Connect(function()
+                binding = true
+                bindBtn.Text = "[Press key]"
+                bindBtn.BackgroundColor3 = Color3.fromRGB(100, 60, 60)
+            end)
+
+            game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
+                if not binding or gp then return end
+                if input.KeyCode == Enum.KeyCode.Escape then
+                    binding = false
+                    bindBtn.Text = "Bind: " .. bindKey
+                    bindBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+                    return
+                end
+                bindKey = input.KeyCode.Name
+                bindBtn.Text = "Bind: " .. bindKey
+                binding = false
+                bindBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+                if callback then callback(selected, bindKey) end
+            end)
+
+            return {
+                GetMode = function() return selected end,
+                GetBind = function() return bindKey end,
+                SetMode = function(m) selected = m; for _, b in ipairs(modeButtons) do
+                    b.BackgroundColor3 = (b.Text == m) and Color3.fromRGB(60, 120, 200) or Color3.fromRGB(40, 40, 50)
+                end end,
+                SetBind = function(k) bindKey = k; bindBtn.Text = "Bind: " .. k end
+            }
+        end
+
         window.Tabs[#window.Tabs + 1] = {
             Name = name,
             Frame = frame,
@@ -318,6 +538,9 @@ function UI:CreateWindow(config)
             AddSlider = tab.AddSlider,
             AddKeybind = tab.AddKeybind,
             AddLabel = tab.AddLabel,
+            AddDropdown = tab.AddDropdown,
+            AddModeSelector = tab.AddModeSelector,
+            AddSeparator = tab.AddSeparator,
         }
 
         return tab
