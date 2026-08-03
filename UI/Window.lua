@@ -1,6 +1,5 @@
 --[=[
-    XLORENs - UI Window (Versión estable - sin errores)
-    Eliminadas todas las dependencias problemáticas.
+    XLORENs - UI Window (Versión estable y corregida)
 ]=]
 
 local UI = {}
@@ -64,13 +63,6 @@ function UI:CreateWindow(config)
     content.CanvasSize = UDim2.new(0, 0, 0, 0)
     content.Parent = tabContainer
 
-    -- ===== Funciones auxiliares (seguras) =====
-    local function safeCall(func, ...)
-        local success, result = pcall(func, ...)
-        return success and result
-    end
-
-    -- ===== Añadir pestañas =====
     local function AddTab(name)
         local tab = { Name = name, Elements = {} }
 
@@ -152,7 +144,7 @@ function UI:CreateWindow(config)
                 active = state
                 bg.BackgroundColor3 = active and Color3.fromRGB(100, 150, 255) or Color3.fromRGB(50, 50, 65)
                 knob.Position = active and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
-                if callback then safeCall(callback, active) end
+                if callback then pcall(callback, active) end
             end
 
             btn2.MouseButton1Click:Connect(function() setState(not active) end)
@@ -212,7 +204,7 @@ function UI:CreateWindow(config)
                 label.Text = text .. ": " .. value
                 fill.Size = UDim2.new(m, 0, 1, 0)
                 handle.Position = UDim2.new(m, -8, 0.5, -8)
-                if callback then safeCall(callback, value) end
+                if callback then pcall(callback, value) end
             end
 
             track.InputBegan:Connect(function(input)
@@ -289,7 +281,7 @@ function UI:CreateWindow(config)
                 btn2.Text = key
                 binding = false
                 btn2.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-                if callback then safeCall(callback, key) end
+                if callback then pcall(callback, key) end
             end)
 
             return { GetKey = function() return key end }
@@ -388,7 +380,7 @@ function UI:CreateWindow(config)
                 btn2.Text = opt
                 dropdownFrame.Visible = false
                 open = false
-                if callback then safeCall(callback, opt) end
+                if callback then pcall(callback, opt) end
             end
 
             for _, opt in ipairs(options) do
@@ -468,7 +460,7 @@ function UI:CreateWindow(config)
                         b.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
                     end
                     btn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
-                    if callback then safeCall(callback, selected, bindKey) end
+                    if callback then pcall(callback, selected, bindKey) end
                 end)
                 table.insert(modeButtons, btn)
             end
@@ -503,7 +495,7 @@ function UI:CreateWindow(config)
                 bindBtn.Text = "Bind: " .. bindKey
                 binding = false
                 bindBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-                if callback then safeCall(callback, selected, bindKey) end
+                if callback then pcall(callback, selected, bindKey) end
             end)
 
             return {
@@ -533,7 +525,6 @@ function UI:CreateWindow(config)
 
     window:AddTab = AddTab
 
-    -- ===== Funciones para mostrar/ocultar =====
     function window:Toggle()
         self.Visible = not self.Visible
         main.Visible = self.Visible
@@ -544,7 +535,6 @@ function UI:CreateWindow(config)
         self.Visible = true
     end
 
-    -- ===== Keybind global (K) =====
     game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
         if gp then return end
         if input.KeyCode == Enum.KeyCode[window.Keybind] then
