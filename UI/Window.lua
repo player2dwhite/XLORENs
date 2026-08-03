@@ -1,5 +1,6 @@
 --[=[
-    XLORENs - UI Window (versión estable)
+    XLORENs - UI Window (Versión estable - sin errores)
+    Eliminadas todas las dependencias problemáticas.
 ]=]
 
 local UI = {}
@@ -63,6 +64,13 @@ function UI:CreateWindow(config)
     content.CanvasSize = UDim2.new(0, 0, 0, 0)
     content.Parent = tabContainer
 
+    -- ===== Funciones auxiliares (seguras) =====
+    local function safeCall(func, ...)
+        local success, result = pcall(func, ...)
+        return success and result
+    end
+
+    -- ===== Añadir pestañas =====
     local function AddTab(name)
         local tab = { Name = name, Elements = {} }
 
@@ -100,12 +108,12 @@ function UI:CreateWindow(config)
         -- Toggle
         function tab:AddToggle(text, callback)
             local active = false
-            local frame2 = Instance.new("Frame")
-            frame2.Size = UDim2.new(1, -5, 0, 44)
-            frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-            frame2.BorderSizePixel = 0
-            frame2.Parent = frame
-            Instance.new("UICorner", frame2).CornerRadius = UDim.new(0, 8)
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(1, -5, 0, 44)
+            f.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+            f.BorderSizePixel = 0
+            f.Parent = frame
+            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
 
             local label = Instance.new("TextLabel")
             label.Size = UDim2.new(1, -60, 1, 0)
@@ -116,14 +124,14 @@ function UI:CreateWindow(config)
             label.TextSize = 13
             label.TextColor3 = Color3.fromRGB(220, 220, 235)
             label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = frame2
+            label.Parent = f
 
             local bg = Instance.new("Frame")
             bg.Size = UDim2.new(0, 42, 0, 24)
             bg.Position = UDim2.new(1, -52, 0.5, -12)
             bg.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
             bg.BorderSizePixel = 0
-            bg.Parent = frame2
+            bg.Parent = f
             Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
 
             local knob = Instance.new("Frame")
@@ -138,13 +146,13 @@ function UI:CreateWindow(config)
             btn2.Size = UDim2.new(1, 0, 1, 0)
             btn2.BackgroundTransparency = 1
             btn2.Text = ""
-            btn2.Parent = frame2
+            btn2.Parent = f
 
             local function setState(state)
                 active = state
                 bg.BackgroundColor3 = active and Color3.fromRGB(100, 150, 255) or Color3.fromRGB(50, 50, 65)
                 knob.Position = active and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
-                if callback then pcall(callback, active) end
+                if callback then safeCall(callback, active) end
             end
 
             btn2.MouseButton1Click:Connect(function() setState(not active) end)
@@ -154,12 +162,12 @@ function UI:CreateWindow(config)
         -- Slider
         function tab:AddSlider(text, min, max, default, callback)
             local value = default or min
-            local frame2 = Instance.new("Frame")
-            frame2.Size = UDim2.new(1, -5, 0, 64)
-            frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-            frame2.BorderSizePixel = 0
-            frame2.Parent = frame
-            Instance.new("UICorner", frame2).CornerRadius = UDim.new(0, 8)
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(1, -5, 0, 64)
+            f.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+            f.BorderSizePixel = 0
+            f.Parent = frame
+            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
 
             local label = Instance.new("TextLabel")
             label.Size = UDim2.new(1, -12, 0, 22)
@@ -170,14 +178,14 @@ function UI:CreateWindow(config)
             label.TextSize = 13
             label.TextColor3 = Color3.fromRGB(220, 220, 235)
             label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = frame2
+            label.Parent = f
 
             local track = Instance.new("Frame")
             track.Size = UDim2.new(1, -24, 0, 6)
             track.Position = UDim2.new(0, 12, 0, 42)
             track.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
             track.BorderSizePixel = 0
-            track.Parent = frame2
+            track.Parent = f
             Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
 
             local p = math.clamp((value - min) / (max - min), 0, 1)
@@ -204,7 +212,7 @@ function UI:CreateWindow(config)
                 label.Text = text .. ": " .. value
                 fill.Size = UDim2.new(m, 0, 1, 0)
                 handle.Position = UDim2.new(m, -8, 0.5, -8)
-                if callback then pcall(callback, value) end
+                if callback then safeCall(callback, value) end
             end
 
             track.InputBegan:Connect(function(input)
@@ -233,12 +241,12 @@ function UI:CreateWindow(config)
         function tab:AddKeybind(text, defaultKey, callback)
             local key = defaultKey or "None"
             local binding = false
-            local frame2 = Instance.new("Frame")
-            frame2.Size = UDim2.new(1, -5, 0, 44)
-            frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-            frame2.BorderSizePixel = 0
-            frame2.Parent = frame
-            Instance.new("UICorner", frame2).CornerRadius = UDim.new(0, 8)
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(1, -5, 0, 44)
+            f.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+            f.BorderSizePixel = 0
+            f.Parent = frame
+            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
 
             local label = Instance.new("TextLabel")
             label.Size = UDim2.new(0, 160, 1, 0)
@@ -249,7 +257,7 @@ function UI:CreateWindow(config)
             label.TextSize = 13
             label.TextColor3 = Color3.fromRGB(220, 220, 235)
             label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = frame2
+            label.Parent = f
 
             local btn2 = Instance.new("TextButton")
             btn2.Size = UDim2.new(0, 60, 0, 28)
@@ -260,7 +268,7 @@ function UI:CreateWindow(config)
             btn2.TextSize = 11
             btn2.TextColor3 = Color3.fromRGB(255, 255, 255)
             btn2.AutoButtonColor = false
-            btn2.Parent = frame2
+            btn2.Parent = f
             Instance.new("UICorner", btn2).CornerRadius = UDim.new(0, 6)
 
             btn2.MouseButton1Click:Connect(function()
@@ -281,7 +289,7 @@ function UI:CreateWindow(config)
                 btn2.Text = key
                 binding = false
                 btn2.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-                if callback then pcall(callback, key) end
+                if callback then safeCall(callback, key) end
             end)
 
             return { GetKey = function() return key end }
@@ -301,17 +309,27 @@ function UI:CreateWindow(config)
             return lbl
         end
 
-        -- Dropdown (simple)
+        -- Separador
+        function tab:AddSeparator()
+            local sep = Instance.new("Frame")
+            sep.Size = UDim2.new(1, -10, 0, 2)
+            sep.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+            sep.BorderSizePixel = 0
+            sep.Parent = frame
+            return sep
+        end
+
+        -- Dropdown
         function tab:AddDropdown(text, options, default, callback)
             local selected = default or options[1] or ""
             local open = false
-            local frame2 = Instance.new("Frame")
-            frame2.Size = UDim2.new(1, -5, 0, 44)
-            frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-            frame2.BorderSizePixel = 0
-            frame2.ClipsDescendants = false
-            frame2.Parent = frame
-            Instance.new("UICorner", frame2).CornerRadius = UDim.new(0, 8)
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(1, -5, 0, 44)
+            f.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+            f.BorderSizePixel = 0
+            f.ClipsDescendants = false
+            f.Parent = frame
+            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
 
             local label = Instance.new("TextLabel")
             label.Size = UDim2.new(0, 100, 1, 0)
@@ -322,7 +340,7 @@ function UI:CreateWindow(config)
             label.TextSize = 13
             label.TextColor3 = Color3.fromRGB(220, 220, 235)
             label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = frame2
+            label.Parent = f
 
             local btn2 = Instance.new("TextButton")
             btn2.Size = UDim2.new(1, -120, 0, 28)
@@ -333,7 +351,7 @@ function UI:CreateWindow(config)
             btn2.TextSize = 11
             btn2.TextColor3 = Color3.fromRGB(255, 255, 255)
             btn2.AutoButtonColor = false
-            btn2.Parent = frame2
+            btn2.Parent = f
             Instance.new("UICorner", btn2).CornerRadius = UDim.new(0, 6)
 
             local dropdownFrame = Instance.new("Frame")
@@ -343,7 +361,7 @@ function UI:CreateWindow(config)
             dropdownFrame.BorderSizePixel = 0
             dropdownFrame.ClipsDescendants = true
             dropdownFrame.Visible = false
-            dropdownFrame.Parent = frame2
+            dropdownFrame.Parent = f
             Instance.new("UICorner", dropdownFrame).CornerRadius = UDim.new(0, 6)
 
             local scroll = Instance.new("ScrollingFrame")
@@ -359,18 +377,18 @@ function UI:CreateWindow(config)
             layout2.SortOrder = Enum.SortOrder.LayoutOrder
             layout2.Parent = scroll
 
-            local function updateDropdownHeight()
+            local function updateHeight()
                 local count = #scroll:GetChildren()
                 local height = math.min(count * 26 + 4, 120)
                 dropdownFrame.Size = UDim2.new(1, -105, 0, height)
             end
 
-            local function selectOption(option)
-                selected = option
-                btn2.Text = option
+            local function selectOption(opt)
+                selected = opt
+                btn2.Text = opt
                 dropdownFrame.Visible = false
                 open = false
-                if callback then pcall(callback, option) end
+                if callback then safeCall(callback, opt) end
             end
 
             for _, opt in ipairs(options) do
@@ -386,22 +404,19 @@ function UI:CreateWindow(config)
                 optBtn.Parent = scroll
                 optBtn.MouseButton1Click:Connect(function() selectOption(opt) end)
             end
-            updateDropdownHeight()
+            updateHeight()
 
             btn2.MouseButton1Click:Connect(function()
                 open = not open
                 dropdownFrame.Visible = open
                 if open then
-                    updateDropdownHeight()
+                    updateHeight()
                     dropdownFrame.Size = UDim2.new(1, -105, 0, 0)
                     dropdownFrame.Size = UDim2.new(1, -105, 0, math.min(#options * 26 + 4, 120))
                 end
             end)
 
-            return {
-                Set = function(opt) selectOption(opt) end,
-                Get = function() return selected end
-            }
+            return { Set = selectOption, Get = function() return selected end }
         end
 
         -- Modo selector
@@ -410,12 +425,12 @@ function UI:CreateWindow(config)
             local bindKey = "None"
             local binding = false
 
-            local frame2 = Instance.new("Frame")
-            frame2.Size = UDim2.new(1, -5, 0, 90)
-            frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-            frame2.BorderSizePixel = 0
-            frame2.Parent = frame
-            Instance.new("UICorner", frame2).CornerRadius = UDim.new(0, 8)
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(1, -5, 0, 90)
+            f.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+            f.BorderSizePixel = 0
+            f.Parent = frame
+            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
 
             local label = Instance.new("TextLabel")
             label.Size = UDim2.new(1, -12, 0, 22)
@@ -426,13 +441,13 @@ function UI:CreateWindow(config)
             label.TextSize = 13
             label.TextColor3 = Color3.fromRGB(220, 220, 235)
             label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = frame2
+            label.Parent = f
 
             local modeContainer = Instance.new("Frame")
             modeContainer.Size = UDim2.new(1, -24, 0, 24)
             modeContainer.Position = UDim2.new(0, 12, 0, 32)
             modeContainer.BackgroundTransparency = 1
-            modeContainer.Parent = frame2
+            modeContainer.Parent = f
 
             local modeButtons = {}
             for i, modeName in ipairs(modes) do
@@ -453,7 +468,7 @@ function UI:CreateWindow(config)
                         b.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
                     end
                     btn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
-                    if callback then pcall(callback, selected, bindKey) end
+                    if callback then safeCall(callback, selected, bindKey) end
                 end)
                 table.insert(modeButtons, btn)
             end
@@ -467,7 +482,7 @@ function UI:CreateWindow(config)
             bindBtn.TextSize = 11
             bindBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
             bindBtn.AutoButtonColor = false
-            bindBtn.Parent = frame2
+            bindBtn.Parent = f
             Instance.new("UICorner", bindBtn).CornerRadius = UDim.new(0, 4)
 
             bindBtn.MouseButton1Click:Connect(function()
@@ -488,7 +503,7 @@ function UI:CreateWindow(config)
                 bindBtn.Text = "Bind: " .. bindKey
                 binding = false
                 bindBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-                if callback then pcall(callback, selected, bindKey) end
+                if callback then safeCall(callback, selected, bindKey) end
             end)
 
             return {
@@ -509,6 +524,7 @@ function UI:CreateWindow(config)
             AddSlider = tab.AddSlider,
             AddKeybind = tab.AddKeybind,
             AddLabel = tab.AddLabel,
+            AddSeparator = tab.AddSeparator,
             AddDropdown = tab.AddDropdown,
             AddModeSelector = tab.AddModeSelector,
         }
@@ -517,6 +533,7 @@ function UI:CreateWindow(config)
 
     window:AddTab = AddTab
 
+    -- ===== Funciones para mostrar/ocultar =====
     function window:Toggle()
         self.Visible = not self.Visible
         main.Visible = self.Visible
@@ -527,6 +544,7 @@ function UI:CreateWindow(config)
         self.Visible = true
     end
 
+    -- ===== Keybind global (K) =====
     game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
         if gp then return end
         if input.KeyCode == Enum.KeyCode[window.Keybind] then
