@@ -10,7 +10,7 @@ local XLORENs = {
     Signals = {},
 }
 
--- Cargar módulos internos
+-- Cargar módulos internos (rutas relativas)
 local function LoadModule(name, path)
     local success, module = pcall(function()
         return loadstring(game:HttpGet("https://raw.githubusercontent.com/player2dwhite/XLORENs/main/" .. path))()
@@ -32,26 +32,21 @@ function XLORENs:Init()
 
     -- Cargar UI
     self.UI = LoadModule("UI", "UI/Window.lua") or {}
-    self.UI.Elements = LoadModule("UIElements", "UI/Elements.lua") or {}
-    self.UI.Theme = LoadModule("UITheme", "UI/Theme.lua") or {}
 
     -- Cargar Vision
     self.WallChecker = LoadModule("WallChecker", "Vision/WallChecker.lua") or {}
-    self.ESP = LoadModule("ESP", "Vision/ESP.lua") or {}
+    if self.WallChecker and self.WallChecker.Init then
+        self.WallChecker:Init(self)
+    end
 
     -- Cargar Combat
     self.TargetManager = LoadModule("TargetManager", "Combat/TargetManager.lua") or {}
-    self.Aimbot = LoadModule("Aimbot", "Combat/Aimbot.lua") or {}
-    self.Prediction = LoadModule("Prediction", "Combat/Prediction.lua") or {}
-
-    -- Pasar dependencias
-    if self.WallChecker then
-        self.WallChecker:Init(self)
-    end
-    if self.TargetManager then
+    if self.TargetManager and self.TargetManager.Init then
         self.TargetManager:Init(self)
     end
-    if self.Aimbot then
+
+    self.Aimbot = LoadModule("Aimbot", "Combat/Aimbot.lua") or {}
+    if self.Aimbot and self.Aimbot.Init then
         self.Aimbot:Init(self)
     end
 
