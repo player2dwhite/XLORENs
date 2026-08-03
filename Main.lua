@@ -1,11 +1,13 @@
 --[=[
-    XLORENs - Main
+    XLORENs - Main (con ESP avanzado integrado)
+    Incluye: Aimbot, ESP (Chams + Box + Info), Trigger, No Recoil, Console Bypass.
 ]=]
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 print("[XLORENs] Iniciando...")
 
@@ -302,6 +304,15 @@ local function CreateUI(config)
             return lbl
         end
 
+        function tab:AddSeparator()
+            local sep = Instance.new("Frame")
+            sep.Size = UDim2.new(1, -10, 0, 2)
+            sep.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+            sep.BorderSizePixel = 0
+            sep.Parent = frame
+            return sep
+        end
+
         function tab:AddDropdown(text, options, default, callback)
             local selected = default or options[1] or ""
             local open = false
@@ -508,6 +519,7 @@ local function CreateUI(config)
             AddSlider = tab.AddSlider,
             AddKeybind = tab.AddKeybind,
             AddLabel = tab.AddLabel,
+            AddSeparator = tab.AddSeparator,
             AddDropdown = tab.AddDropdown,
             AddModeSelector = tab.AddModeSelector,
         }
@@ -557,12 +569,26 @@ else
         WallChecker = nil,
         TargetManager = nil,
         Aimbot = nil,
+        Chams = nil,
     }
 end
 
 -- Asegurar que la UI exista
 if not XLORENs.UI or not XLORENs.UI.CreateWindow then
     XLORENs.UI = { CreateWindow = CreateUI }
+end
+
+-- ====================================================
+-- CARGAR ESP (Chams) si no se cargó desde Loader
+-- ====================================================
+if not XLORENs.Chams then
+    pcall(function()
+        local ChamsModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/player2dwhite/XLORENs/main/ESP/Chams.lua"))()
+        if ChamsModule then
+            XLORENs.Chams = ChamsModule:Init(XLORENs)
+            print("[XLORENs] ESP cargado correctamente.")
+        end
+    end)
 end
 
 -- ====================================================
@@ -577,7 +603,7 @@ window:Open()
 print("[XLORENs] Ventana abierta automáticamente.")
 
 -- ====================================================
--- AIMBOT (usa WallChecker si está disponible)
+-- AIMBOT
 -- ====================================================
 local aimbotEnabled = false
 local aimbotSettings = {
@@ -650,17 +676,283 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ====================================================
+-- NO RECOIL
+-- ====================================================
+local noRecoilRunning = false
+local noRecoilConn = nil
+
+local function startNoRecoil()
+    if noRecoilRunning then return end
+    noRecoilRunning = true
+    noRecoilConn = RunService.Heartbeat:Connect(function()
+        if not noRecoilRunning then
+            noRecoilConn:Disconnect()
+            noRecoilConn = nil
+            return
+        end
+        local recoil = LocalPlayer:FindFirstChild("Recoil")
+        if recoil then pcall(function() recoil:Destroy() end) end
+    end)
+end
+
+local function stopNoRecoil()
+    noRecoilRunning = false
+    if noRecoilConn then
+        noRecoilConn:Disconnect()
+        noRecoilConn = nil
+    end
+end
+
+-- ====================================================
+-- TRIGGER BOT
+-- ====================================================
+local trigEnabled = false
+local trigMode = "Nunca"
+local trigBind = "F"
+
+local function shouldTrigger()
+    if not trigEnabled then return false end
+    if trigMode == "Nunca" then return false end
+    if trigMode == "Siempre" then return true end
+    if trigMode == "Por bind" then
+        return UIS:IsKeyDown(Enum.KeyCode[trigBind])
+    end
+    return false
+end
+
+RunService.RenderStepped:Connect(function()
+    if shouldTrigger() then
+        local mouse = LocalPlayer:GetMouse()
+        local target = mouse.Target
+        if target and target.Parent then
+            local hum = target.Parent:FindFirstChildOfClass("Humanoid")
+            local char = target.Parent
+            if not hum and char.Parent then
+                hum = char.Parent:FindFirstChildOfClass("Humanoid")
+                if hum then char = char.Parent end
+            end
+            if hum and hum.Health > 0 and char ~= LocalPlayer.Character then
+                mouse1press()
+                task.wait(0.05)
+                mouse1release()
+            end
+        end
+    end
+end)
+
+-- ====================================================
 -- CONFIGURACIÓN DE UI
 -- ====================================================
+
+-- === Pestaña Aimbot ===
 local aimTab = window:AddTab("Aimbot")
 aimTab:AddToggle("Aimbot", function(state)
     aimbotEnabled = state
 end)
-aimTab:AddSlider("FOV", 10, 50, 30, function(v) aimbotSettings.FOV = v end)
-aimTab:AddSlider("Smooth", 0, 100, 65, function(v) aimbotSettings.SmoothAmount = v end)
-aimTab:AddToggle("Smooth", function(state) aimbotSettings.Smooth = state end)
+aimTab:AddSlider("FOV", 10, 50, 30, function(v)
+    aimbotSettings.FOV = v
+end)
+aimTab:AddSlider("Smooth", 0, 100, 65, function(v)
+    aimbotSettings.SmoothAmount = v
+end)
+aimTab:AddToggle("Smooth", function(state)
+    aimbotSettings.Smooth = state
+end)
+aimTab:AddSeparator()
+aimTab:AddLabel("=== Arma ===")
+aimTab:AddToggle("No Recoil", function(state)
+    if state then startNoRecoil() else stopNoRecoil() end
+end)
 
--- Pestaña Misc con toggle de Console Bypass
+-- === Pestaña Trigger ===
+local trigTab = window:AddTab("Trigger")
+trigTab:AddToggle("Trigger Bot", function(state)
+    trigEnabled = state
+end)
+local trigModeSelector = trigTab:AddModeSelector("Modo", {"Siempre", "Por bind", "Nunca"}, trigMode, function(mode, bind)
+    trigMode = mode
+    trigBind = bind
+end)
+
+-- === Pestaña ESP (con todas las opciones del nuevo ESP) ===
+local espTab = window:AddTab("ESP")
+
+-- Toggle principal ESP
+local espToggle = espTab:AddToggle("ESP", function(state)
+    if state then
+        if XLORENs.Chams then
+            XLORENs.Chams:Enable()
+        end
+    else
+        if XLORENs.Chams then
+            XLORENs.Chams:Disable()
+        end
+    end
+end)
+
+espTab:AddSeparator()
+espTab:AddLabel("=== Highlights (Chams) ===")
+espTab:AddToggle("Chams", function(state)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.ChamsEnabled = state
+        if state and XLORENs.Chams.Settings.Enabled then
+            XLORENs.Chams:UpdateAll()
+        end
+    end
+end)
+
+espTab:AddToggle("Color por salud", function(state)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.ChamsByHealth = state
+    end
+end)
+
+espTab:AddToggle("Color por equipo", function(state)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.ChamsByTeam = state
+    end
+end)
+
+espTab:AddSeparator()
+espTab:AddLabel("=== Box ESP ===")
+espTab:AddToggle("Box ESP", function(state)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.BoxEnabled = state
+    end
+end)
+
+espTab:AddSlider("Box Grosor", 1, 5, 2, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.BoxThickness = v
+    end
+end)
+
+espTab:AddSeparator()
+espTab:AddLabel("=== Información ===")
+espTab:AddToggle("Info ESP", function(state)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.InfoEnabled = state
+    end
+end)
+
+espTab:AddToggle("Mostrar nombre", function(state)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.ShowName = state
+    end
+end)
+
+espTab:AddToggle("Mostrar salud", function(state)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.ShowHealth = state
+    end
+end)
+
+espTab:AddToggle("Mostrar distancia", function(state)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.ShowDistance = state
+    end
+end)
+
+espTab:AddSeparator()
+espTab:AddLabel("=== Visibilidad ===")
+espTab:AddToggle("Detección de pared", function(state)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.UseWallCheck = state
+    end
+end)
+
+espTab:AddSeparator()
+espTab:AddLabel("=== Colores ===")
+
+-- Color principal (RGB)
+local cr = espTab:AddSlider("Color R", 0, 255, 0, function(v)
+    if XLORENs.Chams then
+        local c = Color3.fromRGB(v, cg.Get(), cb.Get())
+        XLORENs.Chams.Settings.ChamsColor = c
+        XLORENs.Chams.Settings.BoxColor = c
+    end
+end)
+local cg = espTab:AddSlider("Color G", 0, 255, 255, function(v)
+    if XLORENs.Chams then
+        local c = Color3.fromRGB(cr.Get(), v, cb.Get())
+        XLORENs.Chams.Settings.ChamsColor = c
+        XLORENs.Chams.Settings.BoxColor = c
+    end
+end)
+local cb = espTab:AddSlider("Color B", 0, 255, 0, function(v)
+    if XLORENs.Chams then
+        local c = Color3.fromRGB(cr.Get(), cg.Get(), v)
+        XLORENs.Chams.Settings.ChamsColor = c
+        XLORENs.Chams.Settings.BoxColor = c
+    end
+end)
+
+espTab:AddSlider("Transparencia", 0, 100, 70, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.ChamsTransparency = v / 100
+    end
+end)
+
+-- Color visible (cuando el enemigo está visible con WallCheck)
+espTab:AddLabel("Color visible (verde)")
+local vr = espTab:AddSlider("Visible R", 0, 255, 0, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.VisibleColor = Color3.fromRGB(v, vg.Get(), vb.Get())
+    end
+end)
+local vg = espTab:AddSlider("Visible G", 0, 255, 255, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.VisibleColor = Color3.fromRGB(vr.Get(), v, vb.Get())
+    end
+end)
+local vb = espTab:AddSlider("Visible B", 0, 255, 0, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.VisibleColor = Color3.fromRGB(vr.Get(), vg.Get(), v)
+    end
+end)
+
+-- Color oculto (cuando el enemigo está detrás de paredes)
+espTab:AddLabel("Color oculto (rojo)")
+local hr = espTab:AddSlider("Oculto R", 0, 255, 255, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.HiddenColor = Color3.fromRGB(v, hg.Get(), hb.Get())
+    end
+end)
+local hg = espTab:AddSlider("Oculto G", 0, 255, 0, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.HiddenColor = Color3.fromRGB(hr.Get(), v, hb.Get())
+    end
+end)
+local hb = espTab:AddSlider("Oculto B", 0, 255, 0, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.HiddenColor = Color3.fromRGB(hr.Get(), hg.Get(), v)
+    end
+end)
+
+-- === Pestaña WallChecker ===
+local wallTab = window:AddTab("WallCheck")
+wallTab:AddSlider("Min Visibility", 0, 1, 0.15, function(v)
+    if XLORENs.WallChecker and XLORENs.WallChecker.Settings then
+        XLORENs.WallChecker.Settings.MinimumVisibility = v
+    end
+end)
+wallTab:AddSlider("Max Distance", 100, 1000, 500, function(v)
+    if XLORENs.WallChecker and XLORENs.WallChecker.Settings then
+        XLORENs.WallChecker.Settings.MaxDistance = v
+    end
+end)
+wallTab:AddToggle("Team Check", function(state)
+    if XLORENs.WallChecker and XLORENs.WallChecker.Settings then
+        XLORENs.WallChecker.Settings.TeamCheckMode = state and "Auto" or "Disabled"
+    end
+end)
+wallTab:AddToggle("Ignore Same Team", function(state)
+    if XLORENs.WallChecker and XLORENs.WallChecker.Settings then
+        XLORENs.WallChecker.Settings.IgnoreSameTeam = state
+    end
+end)
+
+-- === Pestaña Misc ===
 local miscTab = window:AddTab("Misc")
 miscTab:AddLabel("=== Consola ===")
 miscTab:AddToggle("Silenciar logs (Bypass)", function(state)
@@ -675,13 +967,27 @@ miscTab:AddToggle("Silenciar logs (Bypass)", function(state)
     end
 end)
 
--- Pestaña WallChecker (informativa)
-local wallTab = window:AddTab("WallCheck")
-wallTab:AddLabel("WallChecker integrado.")
-if XLORENs.WallChecker then
-    wallTab:AddLabel("✅ WallChecker cargado.")
-else
-    wallTab:AddLabel("ℹ️ Modo simple (sin WallChecker).")
+-- === Pestaña About ===
+local aboutTab = window:AddTab("About")
+aboutTab:AddLabel("XLORENs Pro")
+aboutTab:AddLabel("v3.0 - All-in-One")
+aboutTab:AddLabel("")
+aboutTab:AddLabel("Módulos:")
+aboutTab:AddLabel("• Aimbot con WallChecker")
+aboutTab:AddLabel("• ESP (Chams + Box + Info)")
+aboutTab:AddLabel("• Trigger Bot")
+aboutTab:AddLabel("• No Recoil")
+aboutTab:AddLabel("• Console Bypass")
+aboutTab:AddLabel("")
+aboutTab:AddLabel("Teclas:")
+aboutTab:AddLabel("• K - Abrir/cerrar menú")
+aboutTab:AddLabel("• F - Trigger rápido (bind)")
+
+-- ====================================================
+-- INICIALIZAR ESP (desactivado por defecto)
+-- ====================================================
+if XLORENs.Chams then
+    XLORENs.Chams:Disable()
 end
 
 -- ====================================================
