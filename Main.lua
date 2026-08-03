@@ -2,10 +2,10 @@
     XLORENs - Main
     Punto de entrada con UI completa (ESP, Aimbot, Trigger, About).
     VERSIÓN MODULAR: Carga Loader.lua y este carga el resto.
+    INTERFAZ VISIBLE AL INICIO (presiona K para cerrar/abrir)
 ]=]
 
 -- Cargar Core (Loader.lua)
--- ⚠️ CAMBIA "player2dwhite" POR TU USUARIO REAL DE GITHUB ⚠️
 local XLORENs = loadstring(game:HttpGet("https://raw.githubusercontent.com/player2dwhite/XLORENs/main/Core/Loader.lua"))()
 XLORENs:Init()
 
@@ -21,6 +21,26 @@ local window = UI:CreateWindow({
     Name = "XLORENs",
     Keybind = "K"
 })
+
+-- ===== MOSTRAR INTERFAZ AL INICIO =====
+-- window:Toggle()  -- Esto alternaría el estado (lo dejaría como estaba)
+-- En su lugar, forzamos que sea visible:
+window.Visible = true
+-- Necesitamos acceder al Frame principal para hacerlo visible.
+-- En UI/Window.lua, el frame principal se llama "main" (variable local).
+-- Para hacerlo limpio, vamos a buscar el ScreenGui y hacer visible su contenido.
+
+-- Buscamos el ScreenGui creado por UI:CreateWindow
+local screenGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("XLORENs")
+if screenGui then
+    -- Buscamos el Frame principal dentro del ScreenGui
+    for _, child in ipairs(screenGui:GetChildren()) do
+        if child:IsA("Frame") and child.Name == "MainFrame" then
+            child.Visible = true
+            break
+        end
+    end
+end
 
 -- ===== Variables globales para configuración =====
 local config = {
@@ -308,7 +328,7 @@ aboutTab:AddLabel("• Trigger Bot")
 aboutTab:AddLabel("• No Recoil")
 aboutTab:AddLabel("")
 aboutTab:AddLabel("Teclas:")
-aboutTab:AddLabel("• " .. window.Keybind .. " - Abrir menú")
+aboutTab:AddLabel("• " .. window.Keybind .. " - Abrir/cerrar menú")
 aboutTab:AddLabel("• F - Trigger rápido (si está en modo bind)")
 
 -- ===== BUCLE PRINCIPAL =====
@@ -375,8 +395,8 @@ end
 -- ===== NOTIFICACIÓN =====
 game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "XLORENs",
-    Text = "Cargado! Presiona " .. window.Keybind .. " para el menú",
+    Text = "Cargado! Presiona " .. window.Keybind .. " para cerrar/abrir el menú",
     Duration = 4
 })
 
-print("[XLORENs] Ready! Press " .. window.Keybind .. " to open menu.")
+print("[XLORENs] Ready! Press " .. window.Keybind .. " to toggle menu.")
