@@ -6,13 +6,14 @@
 local XLORENs = {
     Modules = {},
     Services = {},
+    Config = {},
+    Signals = {},
 }
 
--- Cargar módulos internos desde GitHub
+-- Cargar módulos internos (rutas relativas)
 local function LoadModule(name, path)
-    local url = "https://raw.githubusercontent.com/tu-usuario/XLORENs/main/" .. path
     local success, module = pcall(function()
-        return loadstring(game:HttpGet(url))()
+        return loadstring(game:HttpGet("https://raw.githubusercontent.com/player2dwhite/XLORENs/main/" .. path))()
     end)
     if success and module then
         XLORENs.Modules[name] = module
@@ -23,7 +24,7 @@ local function LoadModule(name, path)
     end
 end
 
--- Inicializar servicios (solo los módulos que existen)
+-- Inicializar servicios
 function XLORENs:Init()
     -- Cargar UI
     self.UI = LoadModule("UI", "UI/Window.lua") or {}
