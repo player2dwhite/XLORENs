@@ -1,6 +1,5 @@
 --[=[
-    XLORENs - UI Window
-    Sistema de ventana con tabs, toggles, sliders, keybinds, dropdowns y modos.
+    XLORENs - UI Window (versión simplificada y corregida)
 ]=]
 
 local UI = {}
@@ -18,10 +17,8 @@ function UI:CreateWindow(config)
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "XLORENs"
     screenGui.ResetOnSpawn = false
-    screenGui.DisplayOrder = 999  -- Asegura que esté por encima
+    screenGui.DisplayOrder = 999
     screenGui.Parent = player:WaitForChild("PlayerGui")
-
-    print("[XLORENs UI] ScreenGui creado")
 
     -- Frame principal
     local main = Instance.new("Frame")
@@ -30,11 +27,9 @@ function UI:CreateWindow(config)
     main.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
     main.BorderSizePixel = 0
     main.ClipsDescendants = true
-    main.Visible = true  -- <--- FORZADO a visible
+    main.Visible = true
     main.Parent = screenGui
     Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
-
-    print("[XLORENs UI] Frame principal creado y visible")
 
     -- Título
     local title = Instance.new("TextLabel")
@@ -76,7 +71,6 @@ function UI:CreateWindow(config)
     local function AddTab(name)
         local tab = { Name = name, Elements = {} }
 
-        -- Tab button
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(0, 80, 1, 0)
         btn.Position = UDim2.new(#window.Tabs * 0.11, 0, 0, 0)
@@ -97,7 +91,6 @@ function UI:CreateWindow(config)
             btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         end)
 
-        -- Tab content frame
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(1, 0, 1, 0)
         frame.BackgroundTransparency = 1
@@ -108,15 +101,6 @@ function UI:CreateWindow(config)
         layout.Padding = UDim.new(0, 6)
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Parent = frame
-
-        function tab:AddSeparator()
-            local sep = Instance.new("Frame")
-            sep.Size = UDim2.new(1, -10, 0, 2)
-            sep.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-            sep.BorderSizePixel = 0
-            sep.Parent = frame
-            return sep
-        end
 
         function tab:AddToggle(text, callback)
             local active = false
@@ -534,7 +518,6 @@ function UI:CreateWindow(config)
             AddLabel = tab.AddLabel,
             AddDropdown = tab.AddDropdown,
             AddModeSelector = tab.AddModeSelector,
-            AddSeparator = tab.AddSeparator,
         }
 
         return tab
@@ -554,7 +537,6 @@ function UI:CreateWindow(config)
         end
     end)
 
-    print("[XLORENs UI] Ventana creada y visible. Presiona " .. window.Keybind .. " para ocultar/mostrar.")
     return window
 end
 
