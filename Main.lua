@@ -1,5 +1,5 @@
 --[=[
-    XLORENs - Main (con UI embebida para evitar errores de carga)
+    XLORENs - Main
 ]=]
 
 local Players = game:GetService("Players")
@@ -7,10 +7,10 @@ local LocalPlayer = Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
-print("[XLORENs] Iniciando con UI embebida...")
+print("[XLORENs] Iniciando...")
 
 -- ====================================================
--- UI EMBEBIDA (completa, sin dependencias externas)
+-- FUNCIÓN DE UI EMBEBIDA (alternativa si falla Window.lua)
 -- ====================================================
 local function CreateUI(config)
     config = config or {}
@@ -537,29 +537,39 @@ local function CreateUI(config)
 end
 
 -- ====================================================
--- CARGAR LOADER Y MÓDULOS (Opcional, para fallbacks)
+-- CARGAR XLORENs (Loader.lua)
 -- ====================================================
-local XLORENs = { UI = { CreateWindow = CreateUI } }
+local XLORENs
 
--- Intentar cargar Loader.lua (para obtener WallChecker, Aimbot, etc.)
-pcall(function()
-    local loader = loadstring(game:HttpGet("https://raw.githubusercontent.com/player2dwhite/XLORENs/main/Core/Loader.lua"))()
-    if loader then
-        XLORENs = loader
-        XLORENs:Init()
-        -- Sobrescribir UI con la embebida para evitar errores
-        XLORENs.UI = { CreateWindow = CreateUI }
-        print("[XLORENs] Loader cargado. Usando UI embebida.")
-    else
-        print("[XLORENs] Loader no disponible. Usando solo UI embebida.")
-    end
+local loaderSuccess, loaderResult = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/player2dwhite/XLORENs/main/Core/Loader.lua"))()
 end)
 
+if loaderSuccess and loaderResult then
+    XLORENs = loaderResult
+    XLORENs:Init()
+    print("[XLORENs] Loader cargado correctamente.")
+else
+    print("[XLORENs] Loader falló. Creando estructura básica...")
+    XLORENs = {
+        UI = { CreateWindow = CreateUI },
+        ConsoleBypass = nil,
+        WallChecker = nil,
+        TargetManager = nil,
+        Aimbot = nil,
+    }
+end
+
+-- Asegurar que la UI exista
+if not XLORENs.UI or not XLORENs.UI.CreateWindow then
+    XLORENs.UI = { CreateWindow = CreateUI }
+end
+
 -- ====================================================
--- CREAR VENTANA CON UI EMBEBIDA
+-- CREAR VENTANA
 -- ====================================================
-print("[XLORENs] Creando ventana con UI embebida...")
-local window = CreateUI({ Name = "XLORENs Pro", Keybind = "K" })
+print("[XLORENs] Creando ventana...")
+local window = XLORENs.UI:CreateWindow({ Name = "XLORENs Pro", Keybind = "K" })
 
 -- Forzar apertura
 task.wait(0.2)
@@ -567,7 +577,7 @@ window:Open()
 print("[XLORENs] Ventana abierta automáticamente.")
 
 -- ====================================================
--- AIMBOT SIMPLE (usando WallChecker si está disponible)
+-- AIMBOT (usa WallChecker si está disponible)
 -- ====================================================
 local aimbotEnabled = false
 local aimbotSettings = {
@@ -576,7 +586,6 @@ local aimbotSettings = {
     Smooth = true,
 }
 
--- Función de actualización del aimbot (usa WallChecker si existe)
 local function UpdateAimbot()
     if not aimbotEnabled then return end
     local cam = workspace.CurrentCamera
@@ -586,12 +595,10 @@ local function UpdateAimbot()
     if not origin then return end
 
     local target = nil
-    -- Intentar usar WallChecker si está disponible
-    if XLORENs and XLORENs.WallChecker and XLORENs.WallChecker.GetBestEnemy then
+    if XLORENs.WallChecker and XLORENs.WallChecker.GetBestEnemy then
         target = XLORENs.WallChecker:GetBestEnemy(origin.Position)
     end
 
-    -- Fallback: búsqueda manual
     if not target then
         local center = cam.ViewportSize / 2
         local bestDist = math.huge
@@ -622,7 +629,7 @@ local function UpdateAimbot()
     end
 
     if target then
-        local aimPart = target:GetAimPart and target:GetAimPart() or target.VisiblePart
+        local aimPart = target.GetAimPart and target:GetAimPart() or target.VisiblePart
         if aimPart then
             local camPos = cam.CFrame.Position
             local lookVector = (aimPart.Position - camPos).Unit
@@ -638,45 +645,43 @@ local function UpdateAimbot()
     end
 end
 
--- Conectar aimbot al bucle
 RunService.RenderStepped:Connect(function()
     pcall(UpdateAimbot)
 end)
 
 -- ====================================================
--- CONFIGURACIÓN DE UI (conectar toggles)
+-- CONFIGURACIÓN DE UI
 -- ====================================================
--- Añadir pestaña de Aimbot a la UI
 local aimTab = window:AddTab("Aimbot")
-
-local aimToggle = aimTab:AddToggle("Aimbot", function(state)
+aimTab:AddToggle("Aimbot", function(state)
     aimbotEnabled = state
-    print("[Aimbot] " .. (state and "Activado" or "Desactivado"))
 end)
+aimTab:AddSlider("FOV", 10, 50, 30, function(v) aimbotSettings.FOV = v end)
+aimTab:AddSlider("Smooth", 0, 100, 65, function(v) aimbotSettings.SmoothAmount = v end)
+aimTab:AddToggle("Smooth", function(state) aimbotSettings.Smooth = state end)
 
-aimTab:AddSlider("FOV", 10, 50, 30, function(v)
-    aimbotSettings.FOV = v
-end)
-
-aimTab:AddSlider("Smooth", 0, 100, 65, function(v)
-    aimbotSettings.SmoothAmount = v
-end)
-
-aimTab:AddToggle("Smooth", function(state)
-    aimbotSettings.Smooth = state
-end)
-
--- Añadir pestaña de WallChecker (si existe)
-local wallTab = window:AddTab("WallCheck")
-wallTab:AddLabel("WallChecker integrado en el aimbot.")
-wallTab:AddLabel("Usa visibilidad para seleccionar objetivos.")
-
-if XLORENs and XLORENs.WallChecker then
-    wallTab:AddToggle("Team Check", function(state)
-        if XLORENs.WallChecker.Settings then
-            XLORENs.WallChecker.Settings.TeamCheckMode = state and "Auto" or "Disabled"
+-- Pestaña Misc con toggle de Console Bypass
+local miscTab = window:AddTab("Misc")
+miscTab:AddLabel("=== Consola ===")
+miscTab:AddToggle("Silenciar logs (Bypass)", function(state)
+    if XLORENs.ConsoleBypass then
+        if state then
+            XLORENs.ConsoleBypass:Enable()
+        else
+            XLORENs.ConsoleBypass:Disable()
         end
-    end)
+    else
+        print("[XLORENs] ConsoleBypass no disponible.")
+    end
+end)
+
+-- Pestaña WallChecker (informativa)
+local wallTab = window:AddTab("WallCheck")
+wallTab:AddLabel("WallChecker integrado.")
+if XLORENs.WallChecker then
+    wallTab:AddLabel("✅ WallChecker cargado.")
+else
+    wallTab:AddLabel("ℹ️ Modo simple (sin WallChecker).")
 end
 
 -- ====================================================
@@ -685,8 +690,8 @@ end
 task.wait(1)
 game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "XLORENs Pro",
-    Text = "Cargado con UI embebida! Presiona K para cerrar/abrir.",
+    Text = "Cargado! Presiona K para cerrar/abrir.",
     Duration = 4
 })
 
-print("[XLORENs] ¡Sistema listo! UI embebida abierta automáticamente.")
+print("[XLORENs] ¡Sistema listo!")
