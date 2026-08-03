@@ -18,7 +18,10 @@ function UI:CreateWindow(config)
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "XLORENs"
     screenGui.ResetOnSpawn = false
+    screenGui.DisplayOrder = 999  -- Asegura que esté por encima
     screenGui.Parent = player:WaitForChild("PlayerGui")
+
+    print("[XLORENs UI] ScreenGui creado")
 
     -- Frame principal
     local main = Instance.new("Frame")
@@ -27,8 +30,11 @@ function UI:CreateWindow(config)
     main.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
     main.BorderSizePixel = 0
     main.ClipsDescendants = true
+    main.Visible = true  -- <--- FORZADO a visible
     main.Parent = screenGui
     Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
+
+    print("[XLORENs UI] Frame principal creado y visible")
 
     -- Título
     local title = Instance.new("TextLabel")
@@ -103,7 +109,6 @@ function UI:CreateWindow(config)
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Parent = frame
 
-        -- Función para crear un separador
         function tab:AddSeparator()
             local sep = Instance.new("Frame")
             sep.Size = UDim2.new(1, -10, 0, 2)
@@ -113,10 +118,8 @@ function UI:CreateWindow(config)
             return sep
         end
 
-        -- Toggle
         function tab:AddToggle(text, callback)
             local active = false
-
             local frame2 = Instance.new("Frame")
             frame2.Size = UDim2.new(1, -5, 0, 44)
             frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
@@ -171,10 +174,8 @@ function UI:CreateWindow(config)
             return { Set = setState, Get = function() return active end }
         end
 
-        -- Slider
         function tab:AddSlider(text, min, max, default, callback)
             local value = default or min
-
             local frame2 = Instance.new("Frame")
             frame2.Size = UDim2.new(1, -5, 0, 64)
             frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
@@ -250,11 +251,9 @@ function UI:CreateWindow(config)
             return { Set = function(v) value = v; label.Text = text .. ": " .. value end }
         end
 
-        -- Keybind
         function tab:AddKeybind(text, defaultKey, callback)
             local key = defaultKey or "None"
             local binding = false
-
             local frame2 = Instance.new("Frame")
             frame2.Size = UDim2.new(1, -5, 0, 44)
             frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
@@ -309,7 +308,6 @@ function UI:CreateWindow(config)
             return { GetKey = function() return key end }
         end
 
-        -- Label
         function tab:AddLabel(text)
             local lbl = Instance.new("TextLabel")
             lbl.Size = UDim2.new(1, -10, 0, 28)
@@ -323,11 +321,9 @@ function UI:CreateWindow(config)
             return lbl
         end
 
-        -- Dropdown (selector de opciones)
         function tab:AddDropdown(text, options, default, callback)
             local selected = default or options[1] or ""
             local open = false
-
             local frame2 = Instance.new("Frame")
             frame2.Size = UDim2.new(1, -5, 0, 44)
             frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
@@ -430,7 +426,6 @@ function UI:CreateWindow(config)
             }
         end
 
-        -- Modo selector (Siempre, Por bind, Nunca)
         function tab:AddModeSelector(text, modes, defaultMode, callback)
             local selected = defaultMode or modes[1] or "Siempre"
             local bindKey = "None"
@@ -486,7 +481,6 @@ function UI:CreateWindow(config)
                 table.insert(modeButtons, btn)
             end
 
-            -- Bind key button
             local bindBtn = Instance.new("TextButton")
             bindBtn.Size = UDim2.new(0.6, 0, 0, 24)
             bindBtn.Position = UDim2.new(0, 12, 0, 60)
@@ -548,13 +542,11 @@ function UI:CreateWindow(config)
 
     window:AddTab = AddTab
 
-    -- Mostrar/ocultar
     function window:Toggle()
         self.Visible = not self.Visible
         main.Visible = self.Visible
     end
 
-    -- Keybind global
     game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
         if gp then return end
         if input.KeyCode == Enum.KeyCode[window.Keybind] then
@@ -562,6 +554,7 @@ function UI:CreateWindow(config)
         end
     end)
 
+    print("[XLORENs UI] Ventana creada y visible. Presiona " .. window.Keybind .. " para ocultar/mostrar.")
     return window
 end
 
