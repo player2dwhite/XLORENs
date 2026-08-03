@@ -1,7 +1,6 @@
 --[=[
     XLORENs - Console Bypass
     Oculta todos los logs (print, warn, error) del LogService global.
-    Solo se muestran en la consola del ejecutor (Solara) si DebugMode está activado.
 ]=]
 
 local ConsoleBypass = {}
@@ -28,11 +27,9 @@ local function interceptPrint(...)
     if not ConsoleBypass.Settings.Enabled then
         return oldPrint(...)
     end
-    -- Si DebugMode está activado, mostramos en consola (usando la original)
     if ConsoleBypass.Settings.DebugMode and oldPrint then
         oldPrint("[XLORENs]", ...)
     end
-    -- No hacemos nada más para evitar que llegue al LogService
 end
 
 local function interceptWarn(...)
@@ -51,7 +48,6 @@ local function interceptError(msg, level)
     if ConsoleBypass.Settings.DebugMode and oldError then
         oldError(msg, (level or 1) + 1)
     end
-    -- Lanzamos el error real pero no mostramos el stack en consola global
     return oldError(msg, (level or 1) + 1)
 end
 
@@ -62,12 +58,10 @@ function ConsoleBypass:Enable()
     if hooksActive then return end
     hooksActive = true
 
-    -- Guardar funciones originales
     oldPrint = print
     oldWarn = warn
     oldError = error
 
-    -- Intentar hookfunction (más potente)
     local hookSuccess = pcall(function()
         hookfunction(print, interceptPrint)
         hookfunction(warn, interceptWarn)
@@ -75,13 +69,11 @@ function ConsoleBypass:Enable()
     end)
 
     if not hookSuccess then
-        -- Fallback: reemplazar en _G
         _G.print = interceptPrint
         _G.warn = interceptWarn
         _G.error = interceptError
     end
 
-    -- Bloquear LogService
     if ConsoleBypass.Settings.BlockLogService then
         pcall(function()
             local LogService = game:GetService("LogService")
@@ -93,15 +85,12 @@ function ConsoleBypass:Enable()
             end
         end)
     end
-
-    print("[ConsoleBypass] Activado. Logs ocultos del LogService global.")
 end
 
 function ConsoleBypass:Disable()
     if not hooksActive then return end
     hooksActive = false
 
-    -- Restaurar funciones originales
     local restoreSuccess = pcall(function()
         hookfunction(print, oldPrint)
         hookfunction(warn, oldWarn)
@@ -113,8 +102,6 @@ function ConsoleBypass:Disable()
         _G.warn = oldWarn
         _G.error = oldError
     end
-
-    print("[ConsoleBypass] Desactivado. Logs restaurados.")
 end
 
 function ConsoleBypass:Toggle()
@@ -125,9 +112,6 @@ function ConsoleBypass:Toggle()
     end
 end
 
--- ====================================================
--- INICIALIZACIÓN AUTOMÁTICA (si se carga como módulo)
--- ====================================================
 if ConsoleBypass.Settings.Enabled then
     ConsoleBypass:Enable()
 end
