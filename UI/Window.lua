@@ -1,5 +1,5 @@
 --[=[
-    XLORENs - UI Window (versión simplificada y corregida)
+    XLORENs - UI Window (corregido)
 ]=]
 
 local UI = {}
@@ -20,7 +20,6 @@ function UI:CreateWindow(config)
     screenGui.DisplayOrder = 999
     screenGui.Parent = player:WaitForChild("PlayerGui")
 
-    -- Frame principal
     local main = Instance.new("Frame")
     main.Size = UDim2.new(0, 420, 0, 520)
     main.Position = UDim2.new(0.5, -210, 0.5, -260)
@@ -31,7 +30,6 @@ function UI:CreateWindow(config)
     main.Parent = screenGui
     Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
 
-    -- Título
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 44)
     title.Position = UDim2.new(0, 0, 0, 0)
@@ -43,20 +41,17 @@ function UI:CreateWindow(config)
     title.Parent = main
     Instance.new("UICorner", title).CornerRadius = UDim.new(0, 12)
 
-    -- Tab container
     local tabContainer = Instance.new("Frame")
     tabContainer.Size = UDim2.new(1, 0, 1, -44)
     tabContainer.Position = UDim2.new(0, 0, 0, 44)
     tabContainer.BackgroundTransparency = 1
     tabContainer.Parent = main
 
-    -- Tab buttons
     local tabButtons = Instance.new("Frame")
     tabButtons.Size = UDim2.new(1, 0, 0, 36)
     tabButtons.BackgroundTransparency = 1
     tabButtons.Parent = tabContainer
 
-    -- Content area
     local content = Instance.new("ScrollingFrame")
     content.Size = UDim2.new(1, -10, 1, -46)
     content.Position = UDim2.new(0, 5, 0, 40)
@@ -67,6 +62,28 @@ function UI:CreateWindow(config)
     content.AutomaticCanvasSize = Enum.AutomaticSize.Y
     content.CanvasSize = UDim2.new(0, 0, 0, 0)
     content.Parent = tabContainer
+
+    -- Función segura para obtener la posición del mouse
+    local function getMousePosition()
+        local success, result = pcall(function()
+            local UIS = game:GetService("UserInputService")
+            if UIS.GetMouseLocation then
+                return UIS:GetMouseLocation()
+            elseif UIS.GetMousePosition then
+                return UIS:GetMousePosition()
+            else
+                -- Fallback: usar el mouse de Players
+                local mouse = player:GetMouse()
+                if mouse and mouse.X and mouse.Y then
+                    return Vector2.new(mouse.X, mouse.Y)
+                end
+            end
+        end)
+        if success and result then
+            return result
+        end
+        return Vector2.new(0, 0)
+    end
 
     local function AddTab(name)
         local tab = { Name = name, Elements = {} }
@@ -148,7 +165,7 @@ function UI:CreateWindow(config)
                 active = state
                 bg.BackgroundColor3 = active and Color3.fromRGB(100, 150, 255) or Color3.fromRGB(50, 50, 65)
                 knob.Position = active and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
-                if callback then callback(active) end
+                if callback then pcall(callback, active) end
             end
 
             btn2.MouseButton1Click:Connect(function()
@@ -204,13 +221,13 @@ function UI:CreateWindow(config)
 
             local dragging = false
             local function update()
-                local mouse = game:GetService("UserInputService"):GetMouseLocation()
-                local m = math.clamp((mouse.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+                local mousePos = getMousePosition()
+                local m = math.clamp((mousePos.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
                 value = math.floor(min + (m * (max - min)))
                 label.Text = text .. ": " .. value
                 fill.Size = UDim2.new(m, 0, 1, 0)
                 handle.Position = UDim2.new(m, -8, 0.5, -8)
-                if callback then callback(value) end
+                if callback then pcall(callback, value) end
             end
 
             track.InputBegan:Connect(function(input)
@@ -286,7 +303,7 @@ function UI:CreateWindow(config)
                 btn2.Text = key
                 binding = false
                 btn2.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-                if callback then callback(key) end
+                if callback then pcall(callback, key) end
             end)
 
             return { GetKey = function() return key end }
@@ -373,7 +390,7 @@ function UI:CreateWindow(config)
                 btn2.Text = option
                 dropdownFrame.Visible = false
                 open = false
-                if callback then callback(option) end
+                if callback then pcall(callback, option) end
             end
 
             for _, opt in ipairs(options) do
@@ -459,7 +476,7 @@ function UI:CreateWindow(config)
                         b.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
                     end
                     btn.BackgroundColor3 = Color3.fromRGB(60, 120, 200)
-                    if callback then callback(selected, bindKey) end
+                    if callback then pcall(callback, selected, bindKey) end
                 end)
 
                 table.insert(modeButtons, btn)
@@ -495,7 +512,7 @@ function UI:CreateWindow(config)
                 bindBtn.Text = "Bind: " .. bindKey
                 binding = false
                 bindBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-                if callback then callback(selected, bindKey) end
+                if callback then pcall(callback, selected, bindKey) end
             end)
 
             return {
@@ -528,6 +545,11 @@ function UI:CreateWindow(config)
     function window:Toggle()
         self.Visible = not self.Visible
         main.Visible = self.Visible
+    end
+
+    function window:Open()
+        main.Visible = true
+        self.Visible = true
     end
 
     game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
