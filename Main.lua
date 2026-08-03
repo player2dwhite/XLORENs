@@ -1,11 +1,17 @@
 --[=[
     XLORENs - Main
-    Punto de entrada del framework.
+    Punto de entrada con UI completa (ESP, Aimbot, Trigger, About).
 ]=]
 
 -- Cargar Core
 local XLORENs = loadstring(game:HttpGet("https://raw.githubusercontent.com/player2dwhite/XLORENs/main/Core/Loader.lua"))()
 XLORENs:Init()
+
+-- Cargar módulos adicionales (si no se cargaron automáticamente)
+local Chams = loadstring(game:HttpGet("https://raw.githubusercontent.com/player2dwhite/XLORENs/main/ESP/Chams.lua"))()
+if Chams then
+    XLORENs.Chams = Chams:Init(XLORENs)
+end
 
 -- Crear UI
 local UI = XLORENs.UI
@@ -14,10 +20,38 @@ local window = UI:CreateWindow({
     Keybind = "K"
 })
 
--- === Pestaña Aimbot ===
-local aimbotTab = window:AddTab("Aimbot")
+-- ===== Variables globales para configuración =====
+local config = {
+    -- Aimbot
+    aimMode = "Siempre",
+    aimBind = "X",
+    aimPart = "Head",
+    aimFOV = 200,
+    aimSmooth = 65,
+    aimVisibleOnly = true,
+    aimLockTime = 0.35,
 
-local aimbotToggle = aimbotTab:AddToggle("Aimbot", function(state)
+    -- Trigger
+    trigMode = "Nunca",
+    trigBind = "F",
+
+    -- ESP
+    espEnabled = false,
+    espColor = Color3.fromRGB(0, 255, 0),
+    espTransparency = 0.7,
+
+    -- WallChecker
+    minVis = 0.15,
+    maxDist = 500,
+    teamCheck = true,
+    ignoreSameTeam = true,
+    debug = false,
+}
+
+-- ===== Pestaña Aimbot =====
+local aimTab = window:AddTab("Aimbot")
+
+local aimToggle = aimTab:AddToggle("Aimbot", function(state)
     if state then
         XLORENs.Aimbot:Enable()
     else
@@ -25,49 +59,165 @@ local aimbotToggle = aimbotTab:AddToggle("Aimbot", function(state)
     end
 end)
 
-aimbotTab:AddKeybind("Toggle Key", "T", function(key)
-    XLORENs.Aimbot.Settings.Key = key
-    window.Keybind = key
+-- Modo selector
+local aimModeSelector = aimTab:AddModeSelector("Modo", {"Siempre", "Por bind", "Nunca"}, config.aimMode, function(mode, bind)
+    config.aimMode = mode
+    config.aimBind = bind
+    XLORENs.Aimbot.Settings.Mode = mode
+    XLORENs.Aimbot.Settings.BindKey = bind
 end)
 
-aimbotTab:AddSlider("FOV", 10, 500, XLORENs.TargetManager.Settings.FOV, function(v)
-    XLORENs.TargetManager.Settings.FOV = v
+aimTab:AddSeparator()
+
+-- Parte del cuerpo (dropdown)
+local partDropdown = aimTab:AddDropdown("Parte", {"Head", "UpperTorso", "HumanoidRootPart", "LowerTorso"}, config.aimPart, function(v)
+    config.aimPart = v
+    XLORENs.Aimbot.Settings.Part = v
 end)
 
-aimbotTab:AddSlider("Smooth Amount", 0, 100, XLORENs.Aimbot.Settings.SmoothAmount, function(v)
+-- FOV slider
+aimTab:AddSlider("FOV (pixels)", 10, 500, config.aimFOV, function(v)
+    config.aimFOV = v
+    XLORENs.Aimbot.Settings.FOV = v
+    XLORENs.Aimbot:CreateFOVCircle()
+end)
+
+-- Smooth slider
+aimTab:AddSlider("Smooth", 0, 100, config.aimSmooth, function(v)
+    config.aimSmooth = v
     XLORENs.Aimbot.Settings.SmoothAmount = v
 end)
 
-aimbotTab:AddSlider("Lock Time", 0, 1, XLORENs.TargetManager.Settings.LockTime, function(v)
+-- Lock time slider
+aimTab:AddSlider("Lock Time", 0, 1, config.aimLockTime, function(v)
+    config.aimLockTime = v
     XLORENs.TargetManager.Settings.LockTime = v
 end)
 
--- === Pestaña WallChecker ===
-local wallTab = window:AddTab("WallChecker")
+-- Toggles
+aimTab:AddToggle("Smooth", function(v)
+    XLORENs.Aimbot.Settings.Smooth = v
+end)
 
-wallTab:AddSlider("Min Visibility", 0, 1, XLORENs.WallChecker.Settings.MinimumVisibility, function(v)
+aimTab:AddToggle("Solo visibles", function(v)
+    config.aimVisibleOnly = v
+    XLORENs.Aimbot.Settings.VisibleOnly = v
+end)
+
+aimTab:AddToggle("Mostrar FOV", function(v)
+    XLORENs.Aimbot.Settings.ShowFOV = v
+    if v then
+        XLORENs.Aimbot:CreateFOVCircle()
+    else
+        if XLORENs.Aimbot._fovCircle then
+            pcall(function() XLORENs.Aimbot._fovCircle:Remove() end)
+            XLORENs.Aimbot._fovCircle = nil
+        end
+    end
+end)
+
+-- ===== Pestaña Trigger =====
+local trigTab = window:AddTab("Trigger")
+
+local trigToggle = trigTab:AddToggle("Trigger Bot", function(state)
+    config.trigEnabled = state
+end)
+
+local trigModeSelector = trigTab:AddModeSelector("Modo", {"Siempre", "Por bind", "Nunca"}, config.trigMode, function(mode, bind)
+    config.trigMode = mode
+    config.trigBind = bind
+end)
+
+trigTab:AddLabel("Al apuntar a un enemigo, dispara automáticamente.")
+
+-- ===== Pestaña ESP =====
+local espTab = window:AddTab("ESP")
+
+local espToggle = espTab:AddToggle("ESP (Chams)", function(state)
+    config.espEnabled = state
+    if XLORENs.Chams then
+        if state then XLORENs.Chams:Enable() else XLORENs.Chams:Disable() end
+    end
+end)
+
+-- Color picker simplificado (usaremos un slider de color)
+espTab:AddLabel("Color (R,G,B)")
+local colorR = espTab:AddSlider("Rojo", 0, 255, 0, function(v)
+    config.espColor = Color3.fromRGB(v, colorG.Get(), colorB.Get())
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.Color = config.espColor
+        XLORENs.Chams:UpdateAll()
+    end
+end)
+local colorG = espTab:AddSlider("Verde", 0, 255, 255, function(v)
+    config.espColor = Color3.fromRGB(colorR.Get(), v, colorB.Get())
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.Color = config.espColor
+        XLORENs.Chams:UpdateAll()
+    end
+end)
+local colorB = espTab:AddSlider("Azul", 0, 255, 0, function(v)
+    config.espColor = Color3.fromRGB(colorR.Get(), colorG.Get(), v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.Color = config.espColor
+        XLORENs.Chams:UpdateAll()
+    end
+end)
+
+espTab:AddSlider("Transparencia", 0, 100, 70, function(v)
+    config.espTransparency = v / 100
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.Transparency = config.espTransparency
+        XLORENs.Chams:UpdateAll()
+    end
+end)
+
+-- ===== Pestaña WallChecker =====
+local wallTab = window:AddTab("WallCheck")
+
+wallTab:AddSlider("Min Visibility", 0, 1, config.minVis, function(v)
+    config.minVis = v
     XLORENs.WallChecker.Settings.MinimumVisibility = v
 end)
 
-wallTab:AddSlider("Max Distance", 100, 1000, XLORENs.WallChecker.Settings.MaxDistance, function(v)
+wallTab:AddSlider("Max Distance", 100, 1000, config.maxDist, function(v)
+    config.maxDist = v
     XLORENs.WallChecker.Settings.MaxDistance = v
 end)
 
 wallTab:AddToggle("Team Check", function(v)
+    config.teamCheck = v
     XLORENs.WallChecker.Settings.TeamCheckMode = v and "Auto" or "Disabled"
 end)
 
 wallTab:AddToggle("Ignore Same Team", function(v)
+    config.ignoreSameTeam = v
     XLORENs.WallChecker.Settings.IgnoreSameTeam = v
 end)
 
 wallTab:AddToggle("Debug", function(v)
+    config.debug = v
     XLORENs.WallChecker.Settings.Debug = v
 end)
 
--- === BUCLE PRINCIPAL ===
+-- ===== Pestaña About =====
+local aboutTab = window:AddTab("About")
+aboutTab:AddLabel("XLORENs Framework")
+aboutTab:AddLabel("v3.0 - Player Visibility Engine")
+aboutTab:AddLabel("")
+aboutTab:AddLabel("Módulos:")
+aboutTab:AddLabel("• WallChecker (visibilidad)")
+aboutTab:AddLabel("• Aimbot + TargetManager")
+aboutTab:AddLabel("• Chams (ESP)")
+aboutTab:AddLabel("• Trigger Bot")
+aboutTab:AddLabel("")
+aboutTab:AddLabel("Teclas:")
+aboutTab:AddLabel("• " .. window.Keybind .. " - Abrir menú")
+aboutTab:AddLabel("• F - Trigger rápido (si está en modo bind)")
+
+-- ===== BUCLE PRINCIPAL =====
 game:GetService("RunService").RenderStepped:Connect(function()
-    if XLORENs.Aimbot.Settings.Enabled then
+    if XLORENs.Aimbot and XLORENs.Aimbot.Settings.Enabled then
         local origin = game:GetService("Players").LocalPlayer.Character
         if origin then
             local head = origin:FindFirstChild("Head") or origin:FindFirstChild("HumanoidRootPart")
@@ -79,12 +229,58 @@ game:GetService("RunService").RenderStepped:Connect(function()
     end
 end)
 
--- Conectar disparo
-game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        XLORENs.Aimbot:Shoot()
+-- ===== TRIGGER BOT =====
+local function shouldTrigger()
+    if not config.trigEnabled then return false end
+    if config.trigMode == "Nunca" then return false end
+    if config.trigMode == "Siempre" then return true end
+    if config.trigMode == "Por bind" then
+        local key = Enum.KeyCode[config.trigBind]
+        return game:GetService("UserInputService"):IsKeyDown(key)
+    end
+    return false
+end
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if shouldTrigger() then
+        local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+        local target = mouse.Target
+        if target and target.Parent then
+            local hum = target.Parent:FindFirstChildOfClass("Humanoid")
+            local char = target.Parent
+            if not hum and char.Parent then
+                hum = char.Parent:FindFirstChildOfClass("Humanoid")
+                if hum then char = char.Parent end
+            end
+            if hum and hum.Health > 0 and char ~= game:GetService("Players").LocalPlayer.Character then
+                if XLORENs.WallChecker and XLORENs.WallChecker:IsEnemy(game:GetService("Players"):GetPlayerFromCharacter(char)) then
+                    mouse1press()
+                    task.wait(0.05)
+                    mouse1release()
+                end
+            end
+        end
     end
 end)
 
-print("[XLORENs] Ready! Press K to open menu.")
+-- ===== CONECTAR DISPARO PARA RECOIL =====
+game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if XLORENs.Aimbot then XLORENs.Aimbot:Shoot() end
+    end
+end)
+
+-- ===== INICIALIZAR ESP =====
+if XLORENs.Chams then
+    XLORENs.Chams:Disable() -- Por defecto desactivado
+end
+
+-- ===== NOTIFICACIÓN =====
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "XLORENs",
+    Text = "Cargado! Presiona " .. window.Keybind .. " para el menú",
+    Duration = 4
+})
+
+print("[XLORENs] Ready! Press " .. window.Keybind .. " to open menu.")
