@@ -1,5 +1,5 @@
 --[=[
-    XLORENs - UI Window (Versión estable y corregida)
+    XLORENs - UI Window (versión estable, sin errores)
 ]=]
 
 local UI = {}
@@ -97,7 +97,8 @@ function UI:CreateWindow(config)
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Parent = frame
 
-        -- Toggle
+        -- ========== Elementos de UI ==========
+
         function tab:AddToggle(text, callback)
             local active = false
             local f = Instance.new("Frame")
@@ -151,7 +152,6 @@ function UI:CreateWindow(config)
             return { Set = setState, Get = function() return active end }
         end
 
-        -- Slider
         function tab:AddSlider(text, min, max, default, callback)
             local value = default or min
             local f = Instance.new("Frame")
@@ -229,7 +229,6 @@ function UI:CreateWindow(config)
             return { Set = function(v) value = v; label.Text = text .. ": " .. value end }
         end
 
-        -- Keybind
         function tab:AddKeybind(text, defaultKey, callback)
             local key = defaultKey or "None"
             local binding = false
@@ -287,7 +286,6 @@ function UI:CreateWindow(config)
             return { GetKey = function() return key end }
         end
 
-        -- Label
         function tab:AddLabel(text)
             local lbl = Instance.new("TextLabel")
             lbl.Size = UDim2.new(1, -10, 0, 28)
@@ -301,7 +299,6 @@ function UI:CreateWindow(config)
             return lbl
         end
 
-        -- Separador
         function tab:AddSeparator()
             local sep = Instance.new("Frame")
             sep.Size = UDim2.new(1, -10, 0, 2)
@@ -311,7 +308,6 @@ function UI:CreateWindow(config)
             return sep
         end
 
-        -- Dropdown
         function tab:AddDropdown(text, options, default, callback)
             local selected = default or options[1] or ""
             local open = false
@@ -369,18 +365,18 @@ function UI:CreateWindow(config)
             layout2.SortOrder = Enum.SortOrder.LayoutOrder
             layout2.Parent = scroll
 
-            local function updateHeight()
+            local function updateDropdownHeight()
                 local count = #scroll:GetChildren()
                 local height = math.min(count * 26 + 4, 120)
                 dropdownFrame.Size = UDim2.new(1, -105, 0, height)
             end
 
-            local function selectOption(opt)
-                selected = opt
-                btn2.Text = opt
+            local function selectOption(option)
+                selected = option
+                btn2.Text = option
                 dropdownFrame.Visible = false
                 open = false
-                if callback then pcall(callback, opt) end
+                if callback then pcall(callback, option) end
             end
 
             for _, opt in ipairs(options) do
@@ -396,22 +392,24 @@ function UI:CreateWindow(config)
                 optBtn.Parent = scroll
                 optBtn.MouseButton1Click:Connect(function() selectOption(opt) end)
             end
-            updateHeight()
+            updateDropdownHeight()
 
             btn2.MouseButton1Click:Connect(function()
                 open = not open
                 dropdownFrame.Visible = open
                 if open then
-                    updateHeight()
+                    updateDropdownHeight()
                     dropdownFrame.Size = UDim2.new(1, -105, 0, 0)
                     dropdownFrame.Size = UDim2.new(1, -105, 0, math.min(#options * 26 + 4, 120))
                 end
             end)
 
-            return { Set = selectOption, Get = function() return selected end }
+            return {
+                Set = function(opt) selectOption(opt) end,
+                Get = function() return selected end
+            }
         end
 
-        -- Modo selector
         function tab:AddModeSelector(text, modes, defaultMode, callback)
             local selected = defaultMode or modes[1] or "Siempre"
             local bindKey = "None"
