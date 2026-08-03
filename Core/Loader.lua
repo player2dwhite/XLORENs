@@ -1,5 +1,5 @@
 --[=[
-    XLORENs Core - Loader (mejorado con manejo de errores)
+    XLORENs Core - Loader
 ]=]
 
 local XLORENs = {
@@ -9,7 +9,6 @@ local XLORENs = {
     Signals = {},
 }
 
--- Cargar módulos internos con manejo de errores mejorado
 local function LoadModule(name, path)
     local url = "https://raw.githubusercontent.com/player2dwhite/XLORENs/main/" .. path
     print("[Loader] Cargando " .. name .. " desde " .. url)
@@ -19,14 +18,10 @@ local function LoadModule(name, path)
         if not raw or raw == "" then
             error("El archivo está vacío o no se pudo descargar.")
         end
-        
-        -- Intentar compilar el código
         local func, err = loadstring(raw)
         if not func then
             error("Error de sintaxis en " .. name .. ": " .. tostring(err))
         end
-        
-        -- Ejecutar el código compilado
         return func()
     end)
 
@@ -40,14 +35,19 @@ local function LoadModule(name, path)
     end
 end
 
--- Inicializar servicios
 function XLORENs:Init()
-    -- Cargar UI (con manejo de errores específico)
+    -- Cargar ConsoleBypass (primero, para silenciar logs)
+    self.ConsoleBypass = LoadModule("ConsoleBypass", "Core/ConsoleBypass.lua") or {}
+    if self.ConsoleBypass and self.ConsoleBypass.Settings then
+        if self.ConsoleBypass.Settings.Enabled then
+            self.ConsoleBypass:Enable()
+        end
+    end
+
+    -- Cargar UI
     self.UI = LoadModule("UI", "UI/Window.lua")
-    
-    -- Si la UI falló, crear una UI de emergencia directamente
     if not self.UI or not self.UI.CreateWindow then
-        print("[Loader] UI no cargada correctamente. Creando UI de emergencia...")
+        print("[Loader] UI no cargada. Creando UI de emergencia...")
         self.UI = {
             CreateWindow = function(config)
                 config = config or {}
@@ -96,7 +96,7 @@ function XLORENs:Init()
                 label.Size = UDim2.new(1, 0, 0, 100)
                 label.Position = UDim2.new(0, 0, 0, 20)
                 label.BackgroundTransparency = 1
-                label.Text = "UI de emergencia cargada.\nEl archivo UI/Window.lua tiene errores.\nPresiona K para cerrar/abrir."
+                label.Text = "UI de emergencia cargada.\nPresiona K para cerrar/abrir."
                 label.TextColor3 = Color3.fromRGB(200, 200, 200)
                 label.Font = Enum.Font.GothamBold
                 label.TextSize = 14
@@ -123,7 +123,7 @@ function XLORENs:Init()
                 return window
             end
         }
-        print("[Loader] UI de emergencia creada correctamente.")
+        print("[Loader] UI de emergencia creada.")
     end
 
     -- Cargar Vision
@@ -147,7 +147,5 @@ function XLORENs:Init()
     return self
 end
 
--- Exponer globalmente
 getgenv().XLORENs = XLORENs
-
 return XLORENs
