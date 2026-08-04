@@ -84,7 +84,7 @@ function XLORENs:Initialize()
     end
 
     -- ESP (Charms.lua) - NOTA: archivo se llama Charms, pero el módulo interno se llama Chams
-    self.Chams = SafeLoadModule("Chams", "ESP/Charms.lua") or {}
+    self.Chams = SafeLoadModule("Charms", "ESP/Charms.lua") or {}
     if self.Chams and self.Chams.Initialize then
         self.Chams:Initialize(self)
     end
