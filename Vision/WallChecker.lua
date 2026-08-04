@@ -1,14 +1,20 @@
 --[=[
     XLORENs - WallChecker v3.5
-    Motor de percepción puro con API orientada a objetos.
-    Incluye: raycast por capas, puntos adaptativos, caché, team check, etc.
+    Motor de percepción avanzado con:
+    - Raycast por capas (atraviesa objetos transparentes y paredes finas)
+    - Puntos adaptativos por tipo de parte (Head, Body, Limbs)
+    - Caché de puntos por personaje
+    - Team Check avanzado (oficial, Attributes, TeamColor, leaderstats, Data folders)
+    - Visibilidad, confianza, exposición, score
+    - FOV, distancia máxima, materiales suaves
+    - API orientada a objetos (enemy:GetAimPart(), enemy:GetPredictionPosition())
 ]=]
 
 local WallChecker = {}
 WallChecker.__index = WallChecker
 
 -- ===== CONFIGURACIÓN =====
-WallChecker.Settings = {
+WallChecker.DefaultSettings = {
     MinimumVisibility = 0.15,
     MinimumImportantVisibility = 0.25,
     MaxLayers = 2,
@@ -29,6 +35,7 @@ WallChecker.Settings = {
     },
     VisionAngle = 120,
     TeamCheckMode = "Auto",
+    CustomTeamProperty = nil,
     IgnoreSameTeam = true,
     AllowNeutral = true,
     NeutralIsEnemy = true,
@@ -51,14 +58,14 @@ function Enemy:GetAimPart(priority)
         LowerTorso = 4,
     }
     local candidates = {}
-    for _, name in ipairs({"Head", "UpperTorso", "HumanoidRootPart", "LowerTorso"}) do
-        local part = self.Character:FindFirstChild(name)
+    for _, partName in ipairs({"Head", "UpperTorso", "HumanoidRootPart", "LowerTorso"}) do
+        local part = self.Character:FindFirstChild(partName)
         if part and part:IsA("BasePart") then
             local visible = false
-            if name == "Head" and self.AimParts.Head then visible = true end
-            if name ~= "Head" and self.AimParts.Body then visible = true end
+            if partName == "Head" and self.AimParts.Head then visible = true end
+            if partName ~= "Head" and self.AimParts.Body then visible = true end
             if visible then
-                table.insert(candidates, { Part = part, Priority = priority[name] or 10 })
+                table.insert(candidates, { Part = part, Priority = priority[partName] or 10 })
             end
         end
     end
@@ -86,8 +93,9 @@ function Enemy:GetPriority()
 end
 
 -- ===== WALLCHECKER =====
-function WallChecker:Init(framework)
+function WallChecker:Initialize(framework)
     self._framework = framework
+    self._settings = WallChecker.DefaultSettings
     self.EnemyCache = {}
     self._lastUpdate = 0
     self._updateDelay = 0.15
@@ -98,14 +106,12 @@ function WallChecker:Init(framework)
     self._neutralCache = {}
     self._enemyCache = {}
 
+    -- Point Cache
+    self._pointCache = {}
+    self._cacheConnections = {}
+
     -- Eventos para caché automática
-    local players = game:GetService("Players")
-    players.PlayerAdded:Connect(function() self:RefreshCache() end)
-    players.PlayerRemoving:Connect(function() self:RefreshCache() end)
-    for _, plr in ipairs(players:GetPlayers()) do
-        plr.CharacterAdded:Connect(function() self:RefreshCache() end)
-        plr.CharacterRemoving:Connect(function() self:RefreshCache() end)
-    end
+    self:_SetupEvents()
 
     -- Timer para Team Checker (optimización)
     task.spawn(function()
@@ -117,12 +123,25 @@ function WallChecker:Init(framework)
     return self
 end
 
+function WallChecker:_SetupEvents()
+    local players = game:GetService("Players")
+    players.PlayerAdded:Connect(function() self:RefreshCache() end)
+    players.PlayerRemoving:Connect(function() self:RefreshCache() end)
+
+    for _, player in ipairs(players:GetPlayers()) do
+        player.CharacterAdded:Connect(function() self:RefreshCache() end)
+        player.CharacterRemoving:Connect(function() self:RefreshCache() end)
+    end
+end
+
 function WallChecker:RefreshCache()
     self.EnemyCache = {}
     self._lastUpdate = 0
 end
 
--- ===== TEAM CHECKER =====
+-- ============================================================
+-- TEAM CHECKER AVANZADO (universal)
+-- ============================================================
 function WallChecker:_ResetTeamCache()
     self._teamSystemDetected = nil
     self._teamCache = {}
@@ -132,17 +151,17 @@ end
 
 function WallChecker:_GetTeamIdentifier(player)
     if not player then return nil end
-    if self._teamCache[player] ~= nil then
-        return self._teamCache[player]
-    end
-    local mode = self.Settings.TeamCheckMode
+    if self._teamCache[player] ~= nil then return self._teamCache[player] end
+
+    local mode = self._settings.TeamCheckMode
     if mode == "Disabled" then
         self._teamCache[player] = nil
         return nil
     end
 
     local result = nil
-    -- 1. Player.Team
+
+    -- 1. Player.Team (sistema oficial de Roblox)
     if mode == "Roblox" or mode == "Auto" or mode == "Custom" then
         if player.Team then
             result = tostring(player.Team)
@@ -151,22 +170,22 @@ function WallChecker:_GetTeamIdentifier(player)
         end
     end
 
-    -- 2. Attributes
+    -- 2. Player:GetAttribute (juegos modernos)
     if mode == "Auto" or mode == "Custom" then
-        local attrNames = {"Team", "TeamID", "Faction", "Role", "Group", "Side", "Class", "Job"}
-        for _, attr in ipairs(attrNames) do
-            local val = player:GetAttribute(attr)
-            if val ~= nil then
-                result = tostring(val)
+        local attributeNames = {"Team", "TeamID", "Faction", "Role", "Group", "Side", "Class", "Job"}
+        for _, attrName in ipairs(attributeNames) do
+            local value = player:GetAttribute(attrName)
+            if value ~= nil then
+                result = tostring(value)
                 self._teamCache[player] = result
                 return result
             end
         end
     end
 
-    -- 3. Custom property
-    if mode == "Custom" and self.Settings.CustomTeamProperty then
-        local prop = player:FindFirstChild(self.Settings.CustomTeamProperty)
+    -- 3. Custom property (configurable)
+    if mode == "Custom" and self._settings.CustomTeamProperty then
+        local prop = player:FindFirstChild(self._settings.CustomTeamProperty)
         if prop then
             if prop:IsA("StringValue") or prop:IsA("NumberValue") or prop:IsA("BoolValue") then
                 result = tostring(prop.Value)
@@ -182,8 +201,8 @@ function WallChecker:_GetTeamIdentifier(player)
 
     -- 4. Common properties
     if mode == "Auto" or mode == "Custom" then
-        local propNames = {"Team", "Faction", "Role", "Group", "Side", "Class", "Job", "TeamID"}
-        for _, propName in ipairs(propNames) do
+        local commonProps = {"Team", "Faction", "Role", "Group", "Side", "Class", "Job", "TeamID"}
+        for _, propName in ipairs(commonProps) do
             local prop = player:FindFirstChild(propName)
             if prop then
                 if prop:IsA("StringValue") or prop:IsA("NumberValue") or prop:IsA("BoolValue") then
@@ -199,7 +218,7 @@ function WallChecker:_GetTeamIdentifier(player)
         end
     end
 
-    -- 5. TeamColor
+    -- 5. TeamColor (alternativa)
     if mode == "Auto" or mode == "Roblox" then
         if player.TeamColor then
             result = tostring(player.TeamColor)
@@ -208,17 +227,17 @@ function WallChecker:_GetTeamIdentifier(player)
         end
     end
 
-    -- 6. leaderstats
+    -- 6. leaderstats (juegos antiguos)
     if mode == "Auto" then
-        local ls = player:FindFirstChild("leaderstats")
-        if ls then
-            local teamStat = ls:FindFirstChild("Team")
+        local leaderstats = player:FindFirstChild("leaderstats")
+        if leaderstats then
+            local teamStat = leaderstats:FindFirstChild("Team")
             if teamStat and teamStat:IsA("StringValue") then
                 result = teamStat.Value
                 self._teamCache[player] = result
                 return result
             end
-            local teamStatNum = ls:FindFirstChild("TeamID")
+            local teamStatNum = leaderstats:FindFirstChild("TeamID")
             if teamStatNum and teamStatNum:IsA("NumberValue") then
                 result = tostring(teamStatNum.Value)
                 self._teamCache[player] = result
@@ -229,9 +248,9 @@ function WallChecker:_GetTeamIdentifier(player)
 
     -- 7. Data folder
     if mode == "Auto" then
-        local data = player:FindFirstChild("Data") or player:FindFirstChild("PlayerData")
-        if data then
-            local teamData = data:FindFirstChild("Team") or data:FindFirstChild("TeamID")
+        local dataFolder = player:FindFirstChild("Data") or player:FindFirstChild("PlayerData")
+        if dataFolder then
+            local teamData = dataFolder:FindFirstChild("Team") or dataFolder:FindFirstChild("TeamID")
             if teamData and teamData:IsA("StringValue") then
                 result = teamData.Value
                 self._teamCache[player] = result
@@ -246,30 +265,28 @@ end
 
 function WallChecker:_GetNeutralStatus(player)
     if not player then return false end
-    if self._neutralCache[player] ~= nil then
-        return self._neutralCache[player]
-    end
-    local neutral = false
+    if self._neutralCache[player] ~= nil then return self._neutralCache[player] end
+
+    local isNeutral = false
     if player.Neutral ~= nil then
-        neutral = (player.Neutral == true)
+        isNeutral = (player.Neutral == true)
     else
-        local nv = player:FindFirstChild("Neutral")
-        if nv and nv:IsA("BoolValue") then
-            neutral = (nv.Value == true)
+        local neutralValue = player:FindFirstChild("Neutral")
+        if neutralValue and neutralValue:IsA("BoolValue") then
+            isNeutral = (neutralValue.Value == true)
         end
-        if not neutral then
+        if not isNeutral then
             local attr = player:GetAttribute("Neutral")
-            if attr ~= nil then neutral = (attr == true) end
+            if attr ~= nil then isNeutral = (attr == true) end
         end
     end
-    self._neutralCache[player] = neutral
-    return neutral
+
+    self._neutralCache[player] = isNeutral
+    return isNeutral
 end
 
 function WallChecker:_DetectTeamSystem()
-    if self._teamSystemDetected ~= nil then
-        return self._teamSystemDetected
-    end
+    if self._teamSystemDetected ~= nil then return self._teamSystemDetected end
 
     local players = game:GetService("Players"):GetPlayers()
     if #players < 2 then
@@ -277,7 +294,7 @@ function WallChecker:_DetectTeamSystem()
         return false
     end
 
-    local mode = self.Settings.TeamCheckMode
+    local mode = self._settings.TeamCheckMode
     if mode == "Disabled" then
         self._teamSystemDetected = false
         return false
@@ -287,10 +304,13 @@ function WallChecker:_DetectTeamSystem()
     local firstTeam = nil
     local allSame = true
 
-    for _, plr in ipairs(players) do
-        local id = self:_GetTeamIdentifier(plr)
+    for _, player in ipairs(players) do
+        local id = self:_GetTeamIdentifier(player)
         if id == nil then
             self._teamSystemDetected = false
+            if self._settings.Debug then
+                warn("[WallChecker] Jugador sin equipo detectado. Sistema de equipos desactivado.")
+            end
             return false
         end
         teamMap[id] = (teamMap[id] or 0) + 1
@@ -301,16 +321,23 @@ function WallChecker:_DetectTeamSystem()
         end
     end
 
+    -- Contar equipos reales (no usar #tabla)
     local teamCount = 0
     for _ in pairs(teamMap) do teamCount = teamCount + 1 end
 
     if allSame and teamCount == 1 then
         self._teamSystemDetected = false
+        if self._settings.Debug then
+            warn("[WallChecker] Todos los jugadores tienen el mismo equipo. Sistema de equipos desactivado.")
+        end
         return false
     end
 
     if teamCount >= 2 then
         self._teamSystemDetected = true
+        if self._settings.Debug then
+            print("[WallChecker] Sistema de equipos detectado: " .. teamCount .. " equipos diferentes.")
+        end
         return true
     end
 
@@ -320,21 +347,19 @@ end
 
 function WallChecker:IsEnemy(player)
     if not player then return false end
-    local lp = game:GetService("Players").LocalPlayer
-    if not lp or player == lp then return false end
+    local localPlayer = game:GetService("Players").LocalPlayer
+    if not localPlayer or player == localPlayer then return false end
 
-    if self._enemyCache[player] ~= nil then
-        return self._enemyCache[player]
-    end
+    if self._enemyCache[player] ~= nil then return self._enemyCache[player] end
 
-    if self.Settings.TeamCheckMode == "Disabled" then
+    if self._settings.TeamCheckMode == "Disabled" then
         self._enemyCache[player] = true
         return true
     end
 
-    if self.Settings.AllowNeutral then
+    if self._settings.AllowNeutral then
         if self:_GetNeutralStatus(player) then
-            self._enemyCache[player] = self.Settings.NeutralIsEnemy
+            self._enemyCache[player] = self._settings.NeutralIsEnemy
             return self._enemyCache[player]
         end
     end
@@ -344,12 +369,12 @@ function WallChecker:IsEnemy(player)
         return true
     end
 
-    if not self.Settings.IgnoreSameTeam then
+    if not self._settings.IgnoreSameTeam then
         self._enemyCache[player] = true
         return true
     end
 
-    local localId = self:_GetTeamIdentifier(lp)
+    local localId = self:_GetTeamIdentifier(localPlayer)
     local targetId = self:_GetTeamIdentifier(player)
 
     if localId == nil or targetId == nil then
@@ -361,116 +386,166 @@ function WallChecker:IsEnemy(player)
     return self._enemyCache[player]
 end
 
--- ===== RAYCAST Y VISIBILIDAD =====
+-- ============================================================
+-- PUNTOS ADAPTATIVOS (Head, Body, Limbs)
+-- ============================================================
 local PartOrder = {
-    "Head", "UpperTorso", "LowerTorso", "HumanoidRootPart"
+    "Head",
+    "UpperTorso",
+    "Torso",
+    "HumanoidRootPart",
+    "RightUpperArm", "RightLowerArm", "RightHand",
+    "LeftUpperArm",  "LeftLowerArm",  "LeftHand",
+    "RightUpperLeg", "RightLowerLeg", "RightFoot",
+    "LeftUpperLeg",  "LeftLowerLeg",  "LeftFoot",
 }
-local PointCache = {}
-local CacheConnections = {}
 
-local function GetPartType(name)
-    return name:find("Head") and "Head" or "Body"
+local function GetPartType(partName)
+    if partName:find("Head") then return "Head" end
+    if partName:find("Torso") or partName:find("RootPart") then return "Body" end
+    if partName:find("Arm") or partName:find("Hand") then return "Limb" end
+    if partName:find("Leg") or partName:find("Foot") then return "Limb" end
+    return "Body"
 end
 
 local function GetPointCount(partType, mode)
     if mode == "fast" then
-        return partType == "Head" and 5 or 3
+        if partType == "Head" then return 5 end
+        if partType == "Body" then return 3 end
+        return 1
     elseif mode == "high" then
-        return partType == "Head" and 13 or 9
+        if partType == "Head" then return 13 end
+        if partType == "Body" then return 9 end
+        return 5
+    else -- medium
+        if partType == "Head" then return 9 end
+        if partType == "Body" then return 5 end
+        return 3
     end
-    return partType == "Head" and 9 or 5
 end
 
 local function GetPartPoints(part, settings)
     local size = part.Size / 2
     local cf = part.CFrame
-    local pType = GetPartType(part.Name)
-    local num = GetPointCount(pType, settings.PointMode or "fast")
-    local pts = { cf * Vector3.new(0,0,0) }
-    if num == 1 then return pts end
+    local partType = GetPartType(part.Name)
+    local numPoints = GetPointCount(partType, settings.PointMode or "fast")
+
+    local points = { cf * Vector3.new(0,0,0) } -- centro siempre incluido
+    if numPoints == 1 then return points end
 
     local offsets = {}
-    if pType == "Head" then
+
+    if partType == "Head" then
         local headOffsets = {
-            Vector3.new(size.X,0,0), Vector3.new(-size.X,0,0),
-            Vector3.new(0,size.Y,0), Vector3.new(0,-size.Y,0),
-            Vector3.new(0,0,size.Z), Vector3.new(0,0,-size.Z),
-            Vector3.new(size.X,size.Y,0), Vector3.new(-size.X,size.Y,0),
-            Vector3.new(size.X,-size.Y,0), Vector3.new(-size.X,-size.Y,0),
-            Vector3.new(0,size.Y,size.Z), Vector3.new(0,-size.Y,size.Z),
+            Vector3.new(size.X, 0, 0), Vector3.new(-size.X, 0, 0),
+            Vector3.new(0, size.Y, 0), Vector3.new(0, -size.Y, 0),
+            Vector3.new(0, 0, size.Z), Vector3.new(0, 0, -size.Z),
+            Vector3.new(size.X, size.Y, 0), Vector3.new(-size.X, size.Y, 0),
+            Vector3.new(size.X, -size.Y, 0), Vector3.new(-size.X, -size.Y, 0),
+            Vector3.new(0, size.Y, size.Z), Vector3.new(0, -size.Y, size.Z),
         }
-        for i = 1, math.min(num - 1, #headOffsets) do
+        for i = 1, math.min(numPoints - 1, #headOffsets) do
             table.insert(offsets, headOffsets[i])
         end
-    else
+    elseif partType == "Body" then
         local bodyOffsets = {
-            Vector3.new(size.X,0,0), Vector3.new(-size.X,0,0),
-            Vector3.new(0,size.Y,0), Vector3.new(0,-size.Y,0),
-            Vector3.new(size.X,size.Y,0), Vector3.new(-size.X,size.Y,0),
-            Vector3.new(size.X,-size.Y,0), Vector3.new(-size.X,-size.Y,0),
+            Vector3.new(size.X, 0, 0), Vector3.new(-size.X, 0, 0),
+            Vector3.new(0, size.Y, 0), Vector3.new(0, -size.Y, 0),
+            Vector3.new(size.X, size.Y, 0), Vector3.new(-size.X, size.Y, 0),
+            Vector3.new(size.X, -size.Y, 0), Vector3.new(-size.X, -size.Y, 0),
         }
-        for i = 1, math.min(num - 1, #bodyOffsets) do
+        for i = 1, math.min(numPoints - 1, #bodyOffsets) do
             table.insert(offsets, bodyOffsets[i])
         end
+    else -- Limbs
+        local limbOffsets = {
+            Vector3.new(0, size.Y * 0.7, 0), Vector3.new(0, -size.Y * 0.7, 0),
+            Vector3.new(size.X * 0.7, 0, 0), Vector3.new(-size.X * 0.7, 0, 0),
+        }
+        for i = 1, math.min(numPoints - 1, #limbOffsets) do
+            table.insert(offsets, limbOffsets[i])
+        end
     end
-    for _, off in ipairs(offsets) do
-        table.insert(pts, cf * off)
+
+    for _, offset in ipairs(offsets) do
+        table.insert(points, cf * offset)
     end
-    return pts
+    return points
 end
 
-local function UpdateCache(part, char, settings)
-    if not part or not part:IsA("BasePart") or not char then return end
-    if not PointCache[char] then PointCache[char] = {} end
-    PointCache[char][part] = GetPartPoints(part, settings)
+-- ============================================================
+-- CACHÉ DE PUNTOS
+-- ============================================================
+function WallChecker:_UpdatePointCache(part, character)
+    if not part or not part:IsA("BasePart") or not character then return end
+    if not self._pointCache[character] then self._pointCache[character] = {} end
+    self._pointCache[character][part] = GetPartPoints(part, self._settings)
 end
 
-local function SetupCache(char, settings)
-    if not char or not char:IsA("Model") then return end
-    if CacheConnections[char] then return end
-    PointCache[char] = {}
-    local conns = {}
-    for _, name in ipairs(PartOrder) do
-        local part = char:FindFirstChild(name)
+function WallChecker:_SetupPointCache(character)
+    if not character or not character:IsA("Model") then return end
+    if self._cacheConnections[character] then return end
+
+    self._pointCache[character] = {}
+    local connections = {}
+
+    local function onPartChanged(part)
+        self:_UpdatePointCache(part, character)
+    end
+
+    for _, partName in ipairs(PartOrder) do
+        local part = character:FindFirstChild(partName)
         if part and part:IsA("BasePart") then
-            UpdateCache(part, char, settings)
-            table.insert(conns, part:GetPropertyChangedSignal("Size"):Connect(function() UpdateCache(part, char, settings) end))
-            table.insert(conns, part:GetPropertyChangedSignal("CFrame"):Connect(function() UpdateCache(part, char, settings) end))
+            self:_UpdatePointCache(part, character)
+            local c1 = part:GetPropertyChangedSignal("Size"):Connect(function() onPartChanged(part) end)
+            local c2 = part:GetPropertyChangedSignal("CFrame"):Connect(function() onPartChanged(part) end)
+            table.insert(connections, c1)
+            table.insert(connections, c2)
         end
     end
-    table.insert(conns, char.AncestryChanged:Connect(function(_, parent)
+
+    local c3 = character.AncestryChanged:Connect(function(_, parent)
         if not parent then
-            if CacheConnections[char] then
-                for _, c in ipairs(CacheConnections[char]) do c:Disconnect() end
-                CacheConnections[char] = nil
-            end
-            PointCache[char] = nil
+            self:_ClearPointCache(character)
         end
-    end))
-    CacheConnections[char] = conns
+    end)
+    table.insert(connections, c3)
+
+    self._cacheConnections[character] = connections
+end
+
+function WallChecker:_ClearPointCache(character)
+    if self._cacheConnections[character] then
+        for _, conn in ipairs(self._cacheConnections[character]) do
+            conn:Disconnect()
+        end
+        self._cacheConnections[character] = nil
+    end
+    self._pointCache[character] = nil
 end
 
 function WallChecker:ClearAllCache()
-    for char, _ in pairs(PointCache) do
-        if CacheConnections[char] then
-            for _, c in ipairs(CacheConnections[char]) do c:Disconnect() end
-            CacheConnections[char] = nil
-        end
-        PointCache[char] = nil
+    for character, _ in pairs(self._pointCache) do
+        self:_ClearPointCache(character)
     end
-    PointCache = {}
+    self._pointCache = {}
+    self.EnemyCache = {}
+    self._lastUpdate = 0
 end
 
-local function CreateParams(ignore)
-    local p = RaycastParams.new()
-    p.FilterType = Enum.RaycastFilterType.Exclude
-    p.IgnoreWater = true
-    p.FilterDescendantsInstances = ignore or {}
-    return p
+-- ============================================================
+-- RAYCAST POR CAPAS (con materiales suaves, accesorios, efectos)
+-- ============================================================
+local function CreateRaycastParams(ignoreList)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.IgnoreWater = true
+    params.FilterDescendantsInstances = ignoreList or {}
+    return params
 end
 
-local function IsAccessory(inst)
-    local parent = inst.Parent
+local function IsAccessory(instance)
+    local parent = instance.Parent
     while parent do
         if parent:IsA("Accessory") then return true end
         if parent:IsA("Model") and parent:FindFirstChildOfClass("Humanoid") then return false end
@@ -479,161 +554,214 @@ local function IsAccessory(inst)
     return false
 end
 
-local function IsEffect(inst)
-    local name = inst.Name:lower()
+local function IsEffect(instance)
+    local name = instance.Name:lower()
     return name:find("effect") or name:find("particle") or name:find("trail") or name:find("beam")
 end
 
-local function SimpleRay(origin, target, char, params, settings)
-    local dir = (target - origin)
-    local dist = dir.Magnitude
-    if dist < 0.001 then return true, {} end
-    dir = dir.Unit
-    local result = workspace:Raycast(origin, dir * dist, params)
+-- Raycast simple (sin capas) - usado en modo "fast"
+local function SimpleRay(origin, target, character, params, settings)
+    local direction = (target - origin)
+    local distance = direction.Magnitude
+    if distance < 0.001 then return true, {} end
+    direction = direction.Unit
+
+    local result = workspace:Raycast(origin, direction * distance, params)
     if not result then return true, {} end
+
     local hit = result.Instance
-    if hit:IsDescendantOf(char) then return true, {} end
-    if settings.IgnoreTransparent and hit:IsA("BasePart") and hit.Transparency >= settings.TransparencyLimit then return true, {} end
-    if settings.IgnoreNonCollidable and hit:IsA("BasePart") and not hit.CanCollide then return true, {} end
-    if hit:IsA("BasePart") and settings.SoftMaterials[hit.Material] then return true, {} end
-    if settings.IgnoreAccessories and IsAccessory(hit) then return true, {} end
-    if settings.IgnoreEffects and IsEffect(hit) then return true, {} end
+    if hit:IsDescendantOf(character) then return true, {} end
+
+    if settings.IgnoreTransparent and hit:IsA("BasePart") and hit.Transparency >= settings.TransparencyLimit then
+        return true, {}
+    end
+    if settings.IgnoreNonCollidable and hit:IsA("BasePart") and not hit.CanCollide then
+        return true, {}
+    end
+    if hit:IsA("BasePart") and settings.SoftMaterials[hit.Material] then
+        return true, {}
+    end
+    if settings.IgnoreAccessories and IsAccessory(hit) then
+        return true, {}
+    end
+    if settings.IgnoreEffects and IsEffect(hit) then
+        return true, {}
+    end
     return false, { hit }
 end
 
-local function LayerRay(origin, target, char, params, settings)
+-- Raycast con capas (usado en modo "medium"/"high")
+local function LayerRay(origin, target, character, params, settings)
     local current = origin
-    local dir = (target - origin)
-    local dist = dir.Magnitude
-    if dist < 0.001 then return true, {} end
-    dir = dir.Unit
-    local layers, blockers = 0, {}
+    local direction = (target - origin)
+    local distance = direction.Magnitude
+    if distance < 0.001 then return true, {} end
+    direction = direction.Unit
+
+    local layers = 0
+    local blockers = {}
+    local lastHit = nil
+
     while layers < settings.MaxLayers do
-        local result = workspace:Raycast(current, dir * (target - current).Magnitude, params)
-        if not result then return true, blockers end
+        local result = workspace:Raycast(current, direction * (target - current).Magnitude, params)
+        if not result then
+            return true, blockers
+        end
+
         local hit = result.Instance
-        if hit:IsDescendantOf(char) then return true, blockers end
+        if hit:IsDescendantOf(character) then
+            return true, blockers
+        end
+
         if settings.IgnoreTransparent and hit:IsA("BasePart") and hit.Transparency >= settings.TransparencyLimit then
-            current = result.Position + dir * 0.1
+            current = result.Position + direction * 0.1
             continue
         end
+
         if settings.IgnoreNonCollidable and hit:IsA("BasePart") and not hit.CanCollide then
-            current = result.Position + dir * 0.1
+            current = result.Position + direction * 0.1
             continue
         end
+
         if hit:IsA("BasePart") and settings.SoftMaterials[hit.Material] then
-            current = result.Position + dir * 0.1
+            current = result.Position + direction * 0.1
             continue
         end
+
         if settings.IgnoreAccessories and IsAccessory(hit) then
-            current = result.Position + dir * 0.1
+            current = result.Position + direction * 0.1
             continue
         end
+
         if settings.IgnoreEffects and IsEffect(hit) then
-            current = result.Position + dir * 0.1
+            current = result.Position + direction * 0.1
             continue
         end
+
         table.insert(blockers, hit)
-        current = result.Position + dir * 0.2
+
+        if lastHit == hit then
+            current = result.Position + direction * 0.2
+        else
+            current = result.Position + result.Normal * 0.2
+            lastHit = hit
+        end
         layers = layers + 1
     end
     return false, blockers
 end
 
--- ===== GET ENEMY INFO =====
-function WallChecker:GetEnemyInfo(origin, target, ignore)
-    local originPos
+-- ============================================================
+-- FUNCIÓN PRINCIPAL: GetEnemyInfo
+-- ============================================================
+function WallChecker:GetEnemyInfo(origin, target, ignoreList)
+    -- Obtener posición de origen
+    local originPosition
     if typeof(origin) == "Vector3" then
-        originPos = origin
+        originPosition = origin
     elseif origin and origin:IsA("BasePart") then
-        originPos = origin.Position
+        originPosition = origin.Position
     else
         return nil
     end
 
     if not target then return nil end
 
-    local targetChar
+    -- Obtener character objetivo
+    local targetCharacter
     if target:IsA("BasePart") then
-        targetChar = target.Parent
-        while targetChar and not targetChar:IsA("Model") do targetChar = targetChar.Parent end
-        if not targetChar then return nil end
+        targetCharacter = target.Parent
+        while targetCharacter and not targetCharacter:IsA("Model") do
+            targetCharacter = targetCharacter.Parent
+        end
+        if not targetCharacter then return nil end
     elseif target:IsA("Model") then
-        targetChar = target
-    else return nil end
+        targetCharacter = target
+    else
+        return nil
+    end
 
-    local targetPlayer = game:GetService("Players"):GetPlayerFromCharacter(targetChar)
+    local targetPlayer = game:GetService("Players"):GetPlayerFromCharacter(targetCharacter)
     if not targetPlayer or not self:IsEnemy(targetPlayer) then return nil end
 
-    local hum = targetChar:FindFirstChildOfClass("Humanoid")
-    if not hum then return nil end
-    if self.Settings.IgnoreDead and hum.Health <= 0 then return nil end
-    if self.Settings.IgnoreForceField and targetChar:FindFirstChildOfClass("ForceField") then return nil end
+    local humanoid = targetCharacter:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return nil end
+    if self._settings.IgnoreDead and humanoid.Health <= 0 then return nil end
+    if self._settings.IgnoreForceField and targetCharacter:FindFirstChildOfClass("ForceField") then return nil end
 
-    local settings = self.Settings
-    local targetPos = targetChar:GetPivot().Position
-    local distance = (targetPos - originPos).Magnitude
+    local settings = self._settings
+    local targetPosition = targetCharacter:GetPivot().Position
+    local distance = (targetPosition - originPosition).Magnitude
 
     if settings.MaxDistance and distance > settings.MaxDistance then return nil end
 
     -- FOV check
     if settings.VisionAngle and settings.VisionAngle > 0 and settings.VisionAngle < 360 then
-        local cam = workspace.CurrentCamera
-        if cam then
-            local dir = cam.CFrame.LookVector
-            local to = (targetPos - originPos).Unit
-            local dot = dir:Dot(to)
-            local ang = math.deg(math.acos(math.clamp(dot, -1, 1)))
-            if ang > settings.VisionAngle / 2 then return nil end
+        local camera = workspace.CurrentCamera
+        if camera then
+            local lookDirection = camera.CFrame.LookVector
+            local toTarget = (targetPosition - originPosition).Unit
+            local dot = lookDirection:Dot(toTarget)
+            local angle = math.deg(math.acos(math.clamp(dot, -1, 1)))
+            if angle > settings.VisionAngle / 2 then return nil end
         end
     end
 
-    if not PointCache[targetChar] then SetupCache(targetChar, settings) end
+    -- Preparar caché de puntos
+    if not self._pointCache[targetCharacter] then
+        self:_SetupPointCache(targetCharacter)
+    end
 
-    local params = CreateParams(ignore or {})
-    local total, visible = 0, 0
+    local raycastParams = CreateRaycastParams(ignoreList or {})
+    local totalPoints = 0
+    local visiblePoints = 0
     local bestPart = nil
     local bestScore = -1
     local blockersSet = {}
-    local exposure = { Head = 0, Body = 0 }
-    local countByType = { Head = 0, Body = 0 }
-    local visibleByType = { Head = 0, Body = 0 }
+    local exposure = { Head = 0, Body = 0, Limbs = 0 }
+    local countByType = { Head = 0, Body = 0, Limbs = 0 }
+    local visibleByType = { Head = 0, Body = 0, Limbs = 0 }
 
     local useLayers = (settings.PointMode == "medium" or settings.PointMode == "high")
-    local rayFunc = useLayers and LayerRay or SimpleRay
+    local rayFunction = useLayers and LayerRay or SimpleRay
 
-    for _, name in ipairs(PartOrder) do
-        local part = targetChar:FindFirstChild(name)
+    for _, partName in ipairs(PartOrder) do
+        local part = targetCharacter:FindFirstChild(partName)
         if part and part:IsA("BasePart") then
-            local points = PointCache[targetChar][part]
+            local points = self._pointCache[targetCharacter][part]
             if not points then
-                UpdateCache(part, targetChar, settings)
-                points = PointCache[targetChar][part] or GetPartPoints(part, settings)
+                self:_UpdatePointCache(part, targetCharacter)
+                points = self._pointCache[targetCharacter][part] or GetPartPoints(part, settings)
             end
-            local pType = GetPartType(name)
-            countByType[pType] = (countByType[pType] or 0) + #points
+            local partType = GetPartType(partName)
+            countByType[partType] = (countByType[partType] or 0) + #points
 
-            local partVisible = 0
+            local partVisibleCount = 0
             for i, point in ipairs(points) do
-                total = total + 1
-                local seen, blockers = rayFunc(originPos, point, targetChar, params, settings)
+                totalPoints = totalPoints + 1
+                local seen, blockers = rayFunction(
+                    originPosition, point, targetCharacter,
+                    raycastParams, settings
+                )
                 if seen then
-                    visible = visible + 1
-                    partVisible = partVisible + 1
-                    visibleByType[pType] = (visibleByType[pType] or 0) + 1
+                    visiblePoints = visiblePoints + 1
+                    partVisibleCount = partVisibleCount + 1
+                    visibleByType[partType] = (visibleByType[partType] or 0) + 1
                 else
-                    for _, b in ipairs(blockers) do blockersSet[b] = true end
+                    for _, blocker in ipairs(blockers) do
+                        blockersSet[blocker] = true
+                    end
                 end
                 if settings.EarlyExitOnCenter and i == 1 and seen then
-                    visible = visible + (#points - 1)
-                    partVisible = partVisible + (#points - 1)
-                    visibleByType[pType] = (visibleByType[pType] or 0) + (#points - 1)
+                    visiblePoints = visiblePoints + (#points - 1)
+                    partVisibleCount = partVisibleCount + (#points - 1)
+                    visibleByType[partType] = (visibleByType[partType] or 0) + (#points - 1)
                     break
                 end
             end
 
-            local priority = settings.PartPriority[name] or 1
-            local score = (partVisible / #points) * priority
+            local priority = settings.PartPriority[partName] or 1
+            local score = (partVisibleCount / #points) * priority
             if score > bestScore then
                 bestScore = score
                 bestPart = part
@@ -641,105 +769,120 @@ function WallChecker:GetEnemyInfo(origin, target, ignore)
         end
     end
 
-    for typ, totalCount in pairs(countByType) do
-        if totalCount > 0 then exposure[typ] = (visibleByType[typ] or 0) / totalCount end
+    -- Calcular exposiciones por tipo
+    for partType, totalCount in pairs(countByType) do
+        if totalCount > 0 then
+            exposure[partType] = (visibleByType[partType] or 0) / totalCount
+        end
     end
 
-    local percent = total > 0 and visible / total or 0
+    local visibility = totalPoints > 0 and visiblePoints / totalPoints or 0
+    local blockersList = {}
+    for blocker, _ in pairs(blockersSet) do
+        table.insert(blockersList, blocker)
+    end
+
     local headVis = exposure.Head or 0
     local bodyVis = exposure.Body or 0
-    local importantVis = math.max(headVis, bodyVis)
-    local confidence = (percent * 0.5) + (importantVis * 0.5)
+    local importantVisibility = math.max(headVis, bodyVis)
+    local confidence = (visibility * 0.5) + (importantVisibility * 0.5)
 
-    local visibleFlag = percent >= settings.MinimumVisibility and
-                        importantVis >= settings.MinimumImportantVisibility
+    local isVisible = visibility >= settings.MinimumVisibility and
+                      importantVisibility >= settings.MinimumImportantVisibility
 
-    if not visibleFlag then return nil end
+    if not isVisible then return nil end
 
     -- Screen position
-    local cam = workspace.CurrentCamera
-    local screenPos = Vector2.new(0, 0)
-    local screenDist = math.huge
-    if cam then
-        local pos, onScreen = cam:WorldToScreenPoint(targetPos)
+    local camera = workspace.CurrentCamera
+    local screenPosition = Vector2.new(0, 0)
+    local screenDistance = math.huge
+    if camera then
+        local position, onScreen = camera:WorldToScreenPoint(targetPosition)
         if onScreen then
-            screenPos = Vector2.new(pos.X, pos.Y)
-            screenDist = (screenPos - cam.ViewportSize / 2).Magnitude
+            screenPosition = Vector2.new(position.X, position.Y)
+            screenDistance = (screenPosition - camera.ViewportSize / 2).Magnitude
         end
     end
 
     -- Velocity
     local velocity = Vector3.new(0, 0, 0)
-    local root = targetChar:FindFirstChild("HumanoidRootPart")
-    if root then
-        velocity = root.AssemblyLinearVelocity
+    local rootPart = targetCharacter:FindFirstChild("HumanoidRootPart")
+    if rootPart then
+        velocity = rootPart.AssemblyLinearVelocity
     end
 
     local aimParts = {
         Head = headVis > 0.3,
         Body = bodyVis > 0.3,
+        Limbs = (exposure.Limbs or 0) > 0.2,
     }
 
     -- Crear objeto Enemy
     local enemy = setmetatable({
         Player = targetPlayer,
-        Character = targetChar,
-        Humanoid = hum,
-        Visible = visibleFlag,
+        Character = targetCharacter,
+        Humanoid = humanoid,
+        Visible = isVisible,
         VisiblePart = bestPart,
-        Position = targetPos,
-        ScreenPosition = screenPos,
+        Position = targetPosition,
+        ScreenPosition = screenPosition,
         Velocity = velocity,
         Distance = distance,
-        Health = hum.Health,
-        Visibility = percent,
+        Health = humanoid.Health,
+        Visibility = visibility,
         Confidence = confidence,
         Exposure = exposure,
-        ScreenDistance = screenDist,
+        ScreenDistance = screenDistance,
         AimParts = aimParts,
-        Blockers = blockersSet,
+        Blockers = blockersList,
         Score = 0,
     }, Enemy)
 
     return enemy
 end
 
--- ===== GET ALL ENEMIES =====
-function WallChecker:GetAllEnemies(origin, ignore)
-    local now = tick()
-    if now - self._lastUpdate < self._updateDelay then
+-- ============================================================
+-- GET ALL ENEMIES & GET BEST ENEMY
+-- ============================================================
+function WallChecker:GetAllEnemies(origin, ignoreList)
+    local currentTime = tick()
+    if currentTime - self._lastUpdate < self._updateDelay then
         return self.EnemyCache
     end
 
-    local originPos
+    local originPosition
     if typeof(origin) == "Vector3" then
-        originPos = origin
+        originPosition = origin
     elseif origin and origin:IsA("BasePart") then
-        originPos = origin.Position
+        originPosition = origin.Position
     else
         return {}
     end
 
     local enemies = {}
     local players = game:GetService("Players"):GetPlayers()
-    for _, plr in ipairs(players) do
-        local info = self:GetEnemyInfo(originPos, plr.Character, ignore)
-        if info then
-            local score = (info.Visibility * 300) + (info.Confidence * 300) -
-                          (info.Distance * 0.3) - (info.ScreenDistance * 0.2)
-            info.Score = score
-            table.insert(enemies, info)
+    local localPlayer = game:GetService("Players").LocalPlayer
+
+    for _, player in ipairs(players) do
+        if player == localPlayer then continue end
+        local enemyInfo = self:GetEnemyInfo(originPosition, player.Character, ignoreList)
+        if enemyInfo then
+            local score = (enemyInfo.Visibility * 300) +
+                          (enemyInfo.Confidence * 300) -
+                          (enemyInfo.Distance * 0.3) -
+                          (enemyInfo.ScreenDistance * 0.2)
+            enemyInfo.Score = score
+            table.insert(enemies, enemyInfo)
         end
     end
 
     self.EnemyCache = enemies
-    self._lastUpdate = now
+    self._lastUpdate = currentTime
     return enemies
 end
 
--- ===== GET BEST ENEMY =====
-function WallChecker:GetBestEnemy(origin, ignore)
-    local enemies = self:GetAllEnemies(origin, ignore)
+function WallChecker:GetBestEnemy(origin, ignoreList)
+    local enemies = self:GetAllEnemies(origin, ignoreList)
     if #enemies == 0 then return nil end
 
     local best = nil
@@ -753,26 +896,31 @@ function WallChecker:GetBestEnemy(origin, ignore)
     return best
 end
 
--- ===== DEPURACIÓN =====
-if WallChecker.Settings.Debug then
-    local function DebugPoint(pos, color)
-        local p = Instance.new("Part")
-        p.Size = Vector3.new(0.15, 0.15, 0.15)
-        p.Position = pos
-        p.Anchored = true
-        p.CanCollide = false
-        p.Material = Enum.Material.Neon
-        p.Color = color
-        p.Parent = workspace
-        task.delay(WallChecker.Settings.DebugDuration or 0.5, function() p:Destroy() end)
+-- ============================================================
+-- DEPURACIÓN VISUAL
+-- ============================================================
+if WallChecker.DefaultSettings.Debug then
+    local function DebugPoint(position, color)
+        local part = Instance.new("Part")
+        part.Size = Vector3.new(0.15, 0.15, 0.15)
+        part.Position = position
+        part.Anchored = true
+        part.CanCollide = false
+        part.Material = Enum.Material.Neon
+        part.Color = color
+        part.Parent = workspace
+        task.delay(WallChecker.DefaultSettings.DebugDuration or 0.5, function()
+            part:Destroy()
+        end)
     end
+
     local oldGetEnemyInfo = WallChecker.GetEnemyInfo
     WallChecker.GetEnemyInfo = function(self, ...)
         local result = oldGetEnemyInfo(self, ...)
         if result and result.VisiblePart then
-            local pts = PointCache[result.Character] and PointCache[result.Character][result.VisiblePart] or {}
-            for _, pt in ipairs(pts) do
-                DebugPoint(pt, Color3.fromRGB(0,255,0))
+            local points = self._pointCache[result.Character] and self._pointCache[result.Character][result.VisiblePart] or {}
+            for _, point in ipairs(points) do
+                DebugPoint(point, Color3.fromRGB(0, 255, 0))
             end
         end
         return result
