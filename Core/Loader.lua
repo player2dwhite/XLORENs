@@ -36,94 +36,15 @@ local function LoadModule(name, path)
 end
 
 function XLORENs:Init()
-    -- Cargar ConsoleBypass (primero, para silenciar logs)
+    -- NO cargamos UI desde GitHub (usamos la embebida de Main.lua)
+    self.UI = nil
+
+    -- Cargar ConsoleBypass
     self.ConsoleBypass = LoadModule("ConsoleBypass", "Core/ConsoleBypass.lua") or {}
     if self.ConsoleBypass and self.ConsoleBypass.Settings then
         if self.ConsoleBypass.Settings.Enabled then
             self.ConsoleBypass:Enable()
         end
-    end
-
-    -- Cargar UI
-    self.UI = LoadModule("UI", "UI/Window.lua")
-    if not self.UI or not self.UI.CreateWindow then
-        print("[Loader] UI no cargada. Creando UI de emergencia...")
-        self.UI = {
-            CreateWindow = function(config)
-                config = config or {}
-                local window = {
-                    Name = config.Name or "XLORENs",
-                    Keybind = config.Keybind or "K",
-                    Tabs = {},
-                    Visible = true,
-                }
-                
-                local player = game:GetService("Players").LocalPlayer
-                local screenGui = Instance.new("ScreenGui")
-                screenGui.Name = "XLORENs_UI_Emergency"
-                screenGui.ResetOnSpawn = false
-                screenGui.DisplayOrder = 999
-                screenGui.Parent = player:WaitForChild("PlayerGui")
-                
-                local main = Instance.new("Frame")
-                main.Size = UDim2.new(0, 400, 0, 300)
-                main.Position = UDim2.new(0.5, -200, 0.5, -150)
-                main.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-                main.BorderSizePixel = 0
-                main.ClipsDescendants = true
-                main.Visible = true
-                main.Parent = screenGui
-                Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
-                
-                local title = Instance.new("TextLabel")
-                title.Size = UDim2.new(1, 0, 0, 40)
-                title.Position = UDim2.new(0, 0, 0, 0)
-                title.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-                title.Text = window.Name .. " (Emergencia)"
-                title.Font = Enum.Font.GothamBlack
-                title.TextSize = 16
-                title.TextColor3 = Color3.fromRGB(255, 200, 100)
-                title.Parent = main
-                Instance.new("UICorner", title).CornerRadius = UDim.new(0, 10)
-                
-                local content = Instance.new("Frame")
-                content.Size = UDim2.new(1, -20, 1, -50)
-                content.Position = UDim2.new(0, 10, 0, 45)
-                content.BackgroundTransparency = 1
-                content.Parent = main
-                
-                local label = Instance.new("TextLabel")
-                label.Size = UDim2.new(1, 0, 0, 100)
-                label.Position = UDim2.new(0, 0, 0, 20)
-                label.BackgroundTransparency = 1
-                label.Text = "UI de emergencia cargada.\nPresiona K para cerrar/abrir."
-                label.TextColor3 = Color3.fromRGB(200, 200, 200)
-                label.Font = Enum.Font.GothamBold
-                label.TextSize = 14
-                label.TextWrapped = true
-                label.Parent = content
-                
-                function window:Toggle()
-                    self.Visible = not self.Visible
-                    main.Visible = self.Visible
-                end
-                
-                function window:Open()
-                    main.Visible = true
-                    self.Visible = true
-                end
-                
-                game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
-                    if gp then return end
-                    if input.KeyCode == Enum.KeyCode[window.Keybind] then
-                        window:Toggle()
-                    end
-                end)
-                
-                return window
-            end
-        }
-        print("[Loader] UI de emergencia creada.")
     end
 
     -- Cargar Vision
@@ -141,6 +62,12 @@ function XLORENs:Init()
     self.Aimbot = LoadModule("Aimbot", "Combat/Aimbot.lua") or {}
     if self.Aimbot and self.Aimbot.Init then
         self.Aimbot:Init(self)
+    end
+
+    -- Cargar ESP
+    self.Chams = LoadModule("Chams", "ESP/Chams.lua") or {}
+    if self.Chams and self.Chams.Init then
+        self.Chams:Init(self)
     end
 
     print("[XLORENs] Loaded successfully!")
