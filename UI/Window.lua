@@ -1,5 +1,7 @@
 --[=[
-    XLORENs - UI Window (versión estable, sin errores)
+    XLORENs - UI Window
+    Sistema de interfaz gráfica con tabs, toggles, sliders, dropdowns, keybinds, mode selector.
+    Versión estable sin errores de sintaxis.
 ]=]
 
 local UI = {}
@@ -97,7 +99,7 @@ function UI:CreateWindow(config)
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Parent = frame
 
-        -- ========== Elementos de UI ==========
+        -- ========== ELEMENTOS DE UI ==========
 
         function tab:AddToggle(text, callback)
             local active = false
