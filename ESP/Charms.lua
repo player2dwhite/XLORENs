@@ -1,147 +1,139 @@
 --[=[
     XLORENs - Chams (ESP)
-    Con Highlights, Box ESP (BoxHandleAdornment) e información (BillboardGui).
+    Sistema de ESP con highlights, boxes e información.
 ]=]
 
 local Chams = {}
 Chams.__index = Chams
 
-function Chams:Init(framework)
+Chams.DefaultSettings = {
+    Enabled = false,
+    Highlights = {
+        Enabled = true,
+        Color = Color3.fromRGB(0, 255, 0),
+        Transparency = 0.7,
+        OutlineColor = Color3.fromRGB(255, 255, 255),
+        OutlineTransparency = 0,
+        ColorByHealth = false,
+        ColorByTeam = false,
+    },
+    Box = {
+        Enabled = true,
+        Color = Color3.fromRGB(0, 255, 0),
+        Thickness = 2,
+        Transparency = 0.3,
+    },
+    Info = {
+        Enabled = true,
+        ShowName = true,
+        ShowHealth = true,
+        ShowDistance = true,
+        Color = Color3.fromRGB(255, 255, 255),
+        Transparency = 0.3,
+    },
+    Visibility = {
+        UseWallCheck = true,
+        VisibleColor = Color3.fromRGB(0, 255, 0),
+        HiddenColor = Color3.fromRGB(255, 0, 0),
+    },
+}
+
+function Chams:Initialize(framework)
     self._framework = framework
+    self._settings = Chams.DefaultSettings
     self._chams = {}
     self._boxes = {}
     self._info = {}
     self._playersCache = {}
-    self.Settings = {
-        Enabled = false,
-        ChamsEnabled = true,
-        ChamsColor = Color3.fromRGB(0, 255, 0),
-        ChamsTransparency = 0.7,
-        ChamsOutlineColor = Color3.fromRGB(255, 255, 255),
-        ChamsOutlineTransparency = 0,
-        ChamsByTeam = false,
-        ChamsByHealth = false,
-        BoxEnabled = true,
-        BoxColor = Color3.fromRGB(0, 255, 0),
-        BoxThickness = 2,
-        BoxTransparency = 0.3,
-        InfoEnabled = true,
-        ShowName = true,
-        ShowHealth = true,
-        ShowDistance = true,
-        InfoColor = Color3.fromRGB(255, 255, 255),
-        InfoTransparency = 0.3,
-        UseWallCheck = true,
-        VisibleColor = Color3.fromRGB(0, 255, 0),
-        HiddenColor = Color3.fromRGB(255, 0, 0),
-    }
     self._updateConnection = nil
-    self._updateRate = 0.15
     self:_SetupEvents()
     return self
-end
+}
 
 function Chams:_SetupEvents()
     local players = game:GetService("Players")
-    players.PlayerAdded:Connect(function(p)
+    players.PlayerAdded:Connect(function(player)
         task.wait(0.5)
-        if self.Settings.Enabled then self:AddPlayer(p) end
+        if self._settings.Enabled then self:AddPlayer(player) end
     end)
-    players.PlayerRemoving:Connect(function(p) self:RemovePlayer(p) end)
-    players.PlayerAdded:Connect(function(p)
-        p.CharacterAdded:Connect(function()
+    players.PlayerRemoving:Connect(function(player)
+        self:RemovePlayer(player)
+    end)
+    players.PlayerAdded:Connect(function(player)
+        player.CharacterAdded:Connect(function()
             task.wait(0.5)
-            if self.Settings.Enabled then self:AddPlayer(p) end
+            if self._settings.Enabled then self:AddPlayer(player) end
         end)
     end)
-end
-
-function Chams:GetPlayerColor(player)
-    local color = self.Settings.ChamsColor
-    if self.Settings.ChamsByTeam then
-        local localTeam = game:GetService("Players").LocalPlayer.Team
-        local targetTeam = player.Team
-        if targetTeam and localTeam then
-            if targetTeam == localTeam then
-                color = Color3.fromRGB(0, 255, 255)
-            else
-                color = Color3.fromRGB(255, 0, 0)
-            end
-        end
-    end
-    if self.Settings.ChamsByHealth then
-        local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-        if hum and hum.MaxHealth > 0 then
-            local healthPercent = hum.Health / hum.MaxHealth
-            color = Color3.fromRGB(255 * (1 - healthPercent), 255 * healthPercent, 0)
-        end
-    end
-    return color
 end
 
 function Chams:AddPlayer(player)
     if not player or player == game:GetService("Players").LocalPlayer then return end
     self:RemovePlayer(player)
 
-    -- Highlight (Chams)
-    if self.Settings.ChamsEnabled then
+    local character = player.Character
+    if not character then return end
+
+    if self._settings.Highlights.Enabled then
         local highlight = Instance.new("Highlight")
-        highlight.Name = "XLORENs_Chams"
-        highlight.FillColor = self:GetPlayerColor(player)
-        highlight.FillTransparency = self.Settings.ChamsTransparency
-        highlight.OutlineColor = self.Settings.ChamsOutlineColor
-        highlight.OutlineTransparency = self.Settings.ChamsOutlineTransparency
+        highlight.Name = "XLORENs_ESP_Highlight"
+        highlight.FillColor = self:_GetPlayerColor(player)
+        highlight.FillTransparency = self._settings.Highlights.Transparency
+        highlight.OutlineColor = self._settings.Highlights.OutlineColor
+        highlight.OutlineTransparency = self._settings.Highlights.OutlineTransparency
         highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         highlight.Parent = game:GetService("CoreGui")
-        if player.Character then highlight.Adornee = player.Character end
-        player.CharacterAdded:Connect(function(char) task.wait(0.5); highlight.Adornee = char end)
-        player.CharacterRemoving:Connect(function() highlight.Adornee = nil end)
+        highlight.Adornee = character
         self._chams[player] = highlight
     end
 
-    -- Box ESP
-    if self.Settings.BoxEnabled then
-        local char = player.Character
-        if char then
-            local root = char:FindFirstChild("HumanoidRootPart")
-            if root then
-                local box = Instance.new("BoxHandleAdornment")
-                box.Name = "XLORENs_Box"
-                box.Size = Vector3.new(4, 6, 2)
-                box.Adornee = root
-                box.Color3 = self.Settings.BoxColor
-                box.Transparency = self.Settings.BoxTransparency
-                box.ZIndex = 10
-                box.AlwaysOnTop = true
-                box.Parent = root
-                self._boxes[player] = box
-            end
+    if self._settings.Box.Enabled then
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if root then
+            local box = Instance.new("BoxHandleAdornment")
+            box.Name = "XLORENs_ESP_Box"
+            box.Size = Vector3.new(4, 6, 2)
+            box.Adornee = root
+            box.Color3 = self._settings.Box.Color
+            box.Transparency = self._settings.Box.Transparency
+            box.ZIndex = 10
+            box.AlwaysOnTop = true
+            box.Parent = root
+            self._boxes[player] = box
         end
     end
 
-    -- Info ESP
-    if self.Settings.InfoEnabled then
-        local char = player.Character
-        if char then
-            local head = char:FindFirstChild("Head")
-            if head then
-                local billboard = Instance.new("BillboardGui")
-                billboard.Name = "XLORENs_Info"
-                billboard.Size = UDim2.new(0, 200, 0, 60)
-                billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-                billboard.AlwaysOnTop = true
-                billboard.Parent = head
-                local label = Instance.new("TextLabel")
-                label.Size = UDim2.new(1, 0, 1, 0)
-                label.BackgroundTransparency = self.Settings.InfoTransparency
-                label.BackgroundColor3 = Color3.fromRGB(0,0,0)
-                label.TextColor3 = self.Settings.InfoColor
-                label.Font = Enum.Font.GothamBold
-                label.TextSize = 14
-                label.TextScaled = true
-                label.Parent = billboard
-                self._info[player] = { Billboard = billboard, Label = label }
-            end
+    if self._settings.Info.Enabled then
+        local head = character:FindFirstChild("Head")
+        if head then
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "XLORENs_ESP_Info"
+            billboard.Size = UDim2.new(0, 200, 0, 60)
+            billboard.StudsOffset = Vector3.new(0, 1.5, 0)
+            billboard.AlwaysOnTop = true
+            billboard.Parent = head
+
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1, 0, 1, 0)
+            frame.BackgroundTransparency = self._settings.Info.Transparency
+            frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            frame.BorderSizePixel = 0
+            frame.Parent = billboard
+
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Size = UDim2.new(1, 0, 1, 0)
+            textLabel.BackgroundTransparency = 1
+            textLabel.TextColor3 = self._settings.Info.Color
+            textLabel.Font = Enum.Font.GothamBold
+            textLabel.TextSize = 12
+            textLabel.TextWrapped = true
+            textLabel.TextScaled = true
+            textLabel.Parent = frame
+
+            self._info[player] = {
+                Billboard = billboard,
+                TextLabel = textLabel,
+            }
         end
     end
 end
@@ -160,84 +152,148 @@ function Chams:RemovePlayer(player)
         self._info[player] = nil
     end
     self._playersCache[player] = nil
-}
+end
+
+function Chams:_GetPlayerColor(player)
+    local color = self._settings.Highlights.Color
+
+    if self._settings.Highlights.ColorByTeam then
+        local localTeam = game:GetService("Players").LocalPlayer.Team
+        local targetTeam = player.Team
+        if targetTeam and localTeam then
+            if targetTeam == localTeam then
+                color = Color3.fromRGB(0, 255, 255)
+            else
+                color = Color3.fromRGB(255, 0, 0)
+            end
+        end
+    end
+
+    if self._settings.Highlights.ColorByHealth then
+        local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid and humanoid.MaxHealth > 0 then
+            local healthPercent = humanoid.Health / humanoid.MaxHealth
+            color = Color3.fromRGB(
+                255 * (1 - healthPercent),
+                255 * healthPercent,
+                0
+            )
+        end
+    end
+
+    return color
+end
 
 function Chams:UpdateAll()
     local players = game:GetService("Players"):GetPlayers()
-    for _, p in ipairs(players) do
-        if p ~= game:GetService("Players").LocalPlayer then
-            if self.Settings.Enabled then self:AddPlayer(p) else self:RemovePlayer(p) end
+    for _, player in ipairs(players) do
+        if player ~= game:GetService("Players").LocalPlayer then
+            if self._settings.Enabled then
+                self:AddPlayer(player)
+            else
+                self:RemovePlayer(player)
+            end
         end
     end
 end
 
 function Chams:Enable()
-    self.Settings.Enabled = true
+    self._settings.Enabled = true
     self:UpdateAll()
-    if not self._updateConnection then
-        self._updateConnection = game:GetService("RunService").Heartbeat:Connect(function()
-            if not self.Settings.Enabled then return end
-            local players = game:GetService("Players"):GetPlayers()
-            local lp = game:GetService("Players").LocalPlayer
-            for _, plr in ipairs(players) do
-                if plr == lp then continue end
-                if not plr.Character then
-                    if self._chams[plr] then self._chams[plr].Visible = false end
-                    if self._boxes[plr] then self._boxes[plr].Visible = false end
-                    if self._info[plr] then self._info[plr].Billboard.Enabled = false end
-                    continue
-                end
-                -- Actualizar información periódicamente
-                if self.Settings.InfoEnabled and self._info[plr] then
-                    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-                    if hum then
-                        local text = ""
-                        if self.Settings.ShowName then text = text .. plr.Name .. "\n" end
-                        if self.Settings.ShowHealth then text = text .. "❤️ " .. math.floor(hum.Health) .. "\n" end
-                        if self.Settings.ShowDistance then
-                            local lpRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-                            local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
-                            if lpRoot and targetRoot then
-                                local dist = math.floor((lpRoot.Position - targetRoot.Position).Magnitude)
-                                text = text .. "📏 " .. dist .. "m"
-                            end
-                        end
-                        self._info[plr].Label.Text = text
-                    end
-                end
-                -- Actualizar colores según visibilidad
-                if self.Settings.UseWallCheck then
-                    local origin = lp.Character and (lp.Character:FindFirstChild("Head") or lp.Character:FindFirstChild("HumanoidRootPart"))
-                    if origin and self._framework and self._framework.WallChecker then
-                        local result = self._framework.WallChecker:GetBestEnemy(origin.Position)
-                        if result and result.Player == plr then
-                            local isVisible = result.Visible
-                            if self._chams[plr] then
-                                self._chams[plr].FillColor = isVisible and self.Settings.VisibleColor or self.Settings.HiddenColor
-                            end
-                            if self._boxes[plr] then
-                                self._boxes[plr].Color3 = isVisible and self.Settings.VisibleColor or self.Settings.HiddenColor
-                            end
-                        end
-                    end
-                end
-            end
-        end)
-    end
+    self:_StartUpdateLoop()
 end
 
 function Chams:Disable()
-    self.Settings.Enabled = false
-    for p, _ in pairs(self._chams) do self:RemovePlayer(p) end
+    self._settings.Enabled = false
+    for player, _ in pairs(self._chams) do
+        self:RemovePlayer(player)
+    end
     if self._updateConnection then
         self._updateConnection:Disconnect()
         self._updateConnection = nil
     end
 end
 
-function Chams:Toggle()
-    if self.Settings.Enabled then self:Disable() else self:Enable() end
-    return self.Settings.Enabled
+function Chams:_StartUpdateLoop()
+    if self._updateConnection then
+        self._updateConnection:Disconnect()
+        self._updateConnection = nil
+    end
+    self._updateConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if not self._settings.Enabled then
+            for player, _ in pairs(self._chams) do
+                if self._chams[player] then
+                    self._chams[player].Visible = false
+                end
+            end
+            return
+        end
+
+        local localPlayer = game:GetService("Players").LocalPlayer
+        local wallChecker = self._framework and self._framework.WallChecker
+
+        for player, highlight in pairs(self._chams) do
+            local character = player.Character
+            if not character then
+                highlight.Visible = false
+                continue
+            end
+
+            if self._settings.Visibility.UseWallCheck and wallChecker then
+                local originPart = localPlayer.Character and (localPlayer.Character:FindFirstChild("Head") or localPlayer.Character:FindFirstChild("HumanoidRootPart"))
+                if originPart then
+                    local head = character:FindFirstChild("Head")
+                    if head then
+                        local isVisible = true -- Simulación, se puede usar wallChecker:GetBestEnemy
+                        if isVisible then
+                            highlight.FillColor = self._settings.Visibility.VisibleColor
+                        else
+                            highlight.FillColor = self._settings.Visibility.HiddenColor
+                        end
+                    end
+                end
+            else
+                highlight.FillColor = self:_GetPlayerColor(player)
+            end
+
+            highlight.Visible = true
+            if highlight.Adornee ~= character then
+                highlight.Adornee = character
+            end
+        end
+
+        for player, info in pairs(self._info) do
+            local character = player.Character
+            if not character then
+                info.Billboard.Visible = false
+                continue
+            end
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if not humanoid or humanoid.Health <= 0 then
+                info.Billboard.Visible = false
+                continue
+            end
+
+            local text = ""
+            if self._settings.Info.ShowName then
+                text = text .. player.Name .. "\n"
+            end
+            if self._settings.Info.ShowHealth then
+                text = text .. "❤️ " .. math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth) .. "\n"
+            end
+            if self._settings.Info.ShowDistance then
+                local localChar = localPlayer.Character
+                local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+                local targetRoot = character:FindFirstChild("HumanoidRootPart")
+                if localRoot and targetRoot then
+                    local distance = (localRoot.Position - targetRoot.Position).Magnitude
+                    text = text .. "📏 " .. math.floor(distance) .. "m"
+                end
+            end
+            info.TextLabel.Text = text
+            info.Billboard.Visible = true
+        end
+    end)
 end
 
 return Chams
