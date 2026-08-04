@@ -1,63 +1,37 @@
 --[=[
     XLORENs - Console Bypass
-    Oculta todos los logs (print, warn, error) del LogService global.
 ]=]
 
 local ConsoleBypass = {}
 
--- ====================================================
--- CONFIGURACIÓN
--- ====================================================
 ConsoleBypass.Settings = {
-    Enabled = true,          -- Activar/desactivar el bypass
-    DebugMode = false,       -- Si true, los logs se muestran en la consola del ejecutor
-    BlockLogService = true,  -- Desconectar LogService.MessageOut
+    Enabled = true,
+    DebugMode = false,
+    BlockLogService = true,
 }
 
--- ====================================================
--- VARIABLES INTERNAS
--- ====================================================
 local oldPrint, oldWarn, oldError
 local hooksActive = false
 
--- ====================================================
--- FUNCIONES DE INTERCEPCIÓN
--- ====================================================
 local function interceptPrint(...)
-    if not ConsoleBypass.Settings.Enabled then
-        return oldPrint(...)
-    end
-    if ConsoleBypass.Settings.DebugMode and oldPrint then
-        oldPrint("[XLORENs]", ...)
-    end
+    if not ConsoleBypass.Settings.Enabled then return oldPrint(...) end
+    if ConsoleBypass.Settings.DebugMode and oldPrint then oldPrint("[XLORENs]", ...) end
 end
 
 local function interceptWarn(...)
-    if not ConsoleBypass.Settings.Enabled then
-        return oldWarn(...)
-    end
-    if ConsoleBypass.Settings.DebugMode and oldWarn then
-        oldWarn("[XLORENs WARN]", ...)
-    end
+    if not ConsoleBypass.Settings.Enabled then return oldWarn(...) end
+    if ConsoleBypass.Settings.DebugMode and oldWarn then oldWarn("[XLORENs WARN]", ...) end
 end
 
 local function interceptError(msg, level)
-    if not ConsoleBypass.Settings.Enabled then
-        return oldError(msg, (level or 1) + 1)
-    end
-    if ConsoleBypass.Settings.DebugMode and oldError then
-        oldError(msg, (level or 1) + 1)
-    end
+    if not ConsoleBypass.Settings.Enabled then return oldError(msg, (level or 1) + 1) end
+    if ConsoleBypass.Settings.DebugMode and oldError then oldError(msg, (level or 1) + 1) end
     return oldError(msg, (level or 1) + 1)
 end
 
--- ====================================================
--- ACTIVAR / DESACTIVAR BYPASS
--- ====================================================
 function ConsoleBypass:Enable()
     if hooksActive then return end
     hooksActive = true
-
     oldPrint = print
     oldWarn = warn
     oldError = error
@@ -90,13 +64,11 @@ end
 function ConsoleBypass:Disable()
     if not hooksActive then return end
     hooksActive = false
-
     local restoreSuccess = pcall(function()
         hookfunction(print, oldPrint)
         hookfunction(warn, oldWarn)
         hookfunction(error, oldError)
     end)
-
     if not restoreSuccess then
         _G.print = oldPrint
         _G.warn = oldWarn
@@ -105,11 +77,7 @@ function ConsoleBypass:Disable()
 end
 
 function ConsoleBypass:Toggle()
-    if hooksActive then
-        self:Disable()
-    else
-        self:Enable()
-    end
+    if hooksActive then self:Disable() else self:Enable() end
 end
 
 if ConsoleBypass.Settings.Enabled then
