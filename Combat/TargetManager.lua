@@ -1,107 +1,93 @@
 --[=[
     XLORENs - TargetManager
-    Selección, lock y validación de objetivos.
+    Selección y seguimiento de objetivos con FOV y lock time.
 ]=]
 
 local TargetManager = {}
 TargetManager.__index = TargetManager
 
-function TargetManager:Init(framework)
+TargetManager.DefaultSettings = {
+    FieldOfView = 150,       -- en píxeles
+    LockTime = 0.35,         -- segundos antes de cambiar de objetivo
+}
+
+function TargetManager:Initialize(framework)
     self._framework = framework
-    self.WallChecker = framework.WallChecker
-    self.CurrentTarget = nil
-    self.TargetSwitchTime = 0
-    self.Settings = {
-        FOV = 150,
-        LockTime = 0.35,
-        ValidationDelay = 0.15,
-    }
+    self._wallChecker = framework.WallChecker
+    self._settings = TargetManager.DefaultSettings
+    self._currentTarget = nil
+    self._lastSwitchTime = 0
     return self
 end
 
-function TargetManager:GetTarget(origin, settings)
-    settings = settings or self.Settings
-    local originPos
-    if typeof(origin) == "Vector3" then
-        originPos = origin
-    elseif origin and origin:IsA("BasePart") then
-        originPos = origin.Position
-    else
-        return nil
-    end
+function TargetManager:GetTarget(originPosition, optionalSettings)
+    local settings = optionalSettings or self._settings
+    local currentTime = tick()
 
-    local allEnemies = self.WallChecker:GetAllEnemies(originPos)
+    local allEnemies = self._wallChecker:GetAllEnemies(originPosition)
+
     local enemiesInFOV = {}
-    for _, e in ipairs(allEnemies) do
-        if e.ScreenDistance <= settings.FOV then
-            table.insert(enemiesInFOV, e)
+    for _, enemy in ipairs(allEnemies) do
+        if enemy.ScreenDistance <= settings.FieldOfView then
+            table.insert(enemiesInFOV, enemy)
         end
     end
 
     local bestEnemy = nil
     local bestScore = -math.huge
-    for _, e in ipairs(enemiesInFOV) do
-        if e.Score > bestScore then
-            bestScore = e.Score
-            bestEnemy = e
+    for _, enemy in ipairs(enemiesInFOV) do
+        if enemy.Score > bestScore then
+            bestScore = enemy.Score
+            bestEnemy = enemy
         end
     end
 
-    if not bestEnemy then
-        for _, e in ipairs(allEnemies) do
-            if e.Score > bestScore then
-                bestScore = e.Score
-                bestEnemy = e
+    if not bestEnemy and #allEnemies > 0 then
+        bestEnemy = allEnemies[1]
+        for _, enemy in ipairs(allEnemies) do
+            if enemy.Score > bestScore then
+                bestScore = enemy.Score
+                bestEnemy = enemy
             end
         end
     end
 
     if not bestEnemy then
-        self.CurrentTarget = nil
-        self.TargetSwitchTime = 0
+        self._currentTarget = nil
+        self._lastSwitchTime = 0
         return nil
     end
 
-    local now = tick()
-    if self.CurrentTarget then
+    if self._currentTarget then
         local stillValid = false
-        for _, e in ipairs(enemiesInFOV) do
-            if e.Player == self.CurrentTarget.Player then
+        for _, enemy in ipairs(enemiesInFOV) do
+            if enemy.Player == self._currentTarget.Player then
                 stillValid = true
-                self.CurrentTarget = e
+                self._currentTarget = enemy
                 break
             end
         end
         if not stillValid then
-            self.CurrentTarget = nil
-            self.TargetSwitchTime = 0
+            self._currentTarget = nil
+            self._lastSwitchTime = 0
+        else
+            if currentTime - self._lastSwitchTime >= settings.LockTime then
+                if bestEnemy and bestEnemy.Score > self._currentTarget.Score then
+                    self._currentTarget = bestEnemy
+                    self._lastSwitchTime = currentTime
+                end
+            end
+            return self._currentTarget
         end
     end
 
-    if self.CurrentTarget then
-        if now - self.TargetSwitchTime < settings.LockTime then
-            return self.CurrentTarget
-        end
-        if bestEnemy and bestEnemy.Score > self.CurrentTarget.Score then
-            self.CurrentTarget = bestEnemy
-            self.TargetSwitchTime = now
-            return self.CurrentTarget
-        end
-        return self.CurrentTarget
-    else
-        self.CurrentTarget = bestEnemy
-        self.TargetSwitchTime = now
-        return self.CurrentTarget
-    end
+    self._currentTarget = bestEnemy
+    self._lastSwitchTime = currentTime
+    return self._currentTarget
 end
 
 function TargetManager:GetCurrentTarget()
-    return self.CurrentTarget
-end
-
-function TargetManager:ClearTarget()
-    self.CurrentTarget = nil
-    self.TargetSwitchTime = 0
+    return self._currentTarget
 end
 
 return TargetManager
