@@ -571,7 +571,7 @@ else
         WallChecker = nil,
         TargetManager = nil,
         Aimbot = nil,
-        Chams = nil,
+        Charms = nil,
         Movement = nil,
     }
 end
