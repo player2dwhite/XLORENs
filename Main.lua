@@ -1,12 +1,11 @@
 --[=[
-    XLORENs - Main (con UI embebida y Fullbright)
+    XLORENs - Main (UI embebida, Fullbright, Aimbot v4, ESP completo)
 ]=]
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
 
 print("[XLORENs] Iniciando...")
@@ -836,6 +835,9 @@ end)
 espTab:AddToggle("Color por salud", function(state)
     if XLORENs.Chams then XLORENs.Chams.Settings.ChamsByHealth = state end
 end)
+espTab:AddToggle("Color por equipo", function(state)
+    if XLORENs.Chams then XLORENs.Chams.Settings.ChamsByTeam = state end
+end)
 espTab:AddSeparator()
 espTab:AddLabel("=== Box ESP ===")
 espTab:AddToggle("Box ESP", function(state)
@@ -843,6 +845,20 @@ espTab:AddToggle("Box ESP", function(state)
 end)
 espTab:AddSlider("Box Grosor", 1, 5, 2, function(v)
     if XLORENs.Chams then XLORENs.Chams.Settings.BoxThickness = v end
+end)
+espTab:AddSeparator()
+espTab:AddLabel("=== Información ===")
+espTab:AddToggle("Info ESP", function(state)
+    if XLORENs.Chams then XLORENs.Chams.Settings.InfoEnabled = state end
+end)
+espTab:AddToggle("Mostrar nombre", function(state)
+    if XLORENs.Chams then XLORENs.Chams.Settings.ShowName = state end
+end)
+espTab:AddToggle("Mostrar salud", function(state)
+    if XLORENs.Chams then XLORENs.Chams.Settings.ShowHealth = state end
+end)
+espTab:AddToggle("Mostrar distancia", function(state)
+    if XLORENs.Chams then XLORENs.Chams.Settings.ShowDistance = state end
 end)
 espTab:AddSeparator()
 espTab:AddLabel("=== Colores ===")
@@ -869,6 +885,43 @@ local cb = espTab:AddSlider("Color B", 0, 255, 0, function(v)
 end)
 espTab:AddSlider("Transparencia", 0, 100, 70, function(v)
     if XLORENs.Chams then XLORENs.Chams.Settings.ChamsTransparency = v / 100 end
+end)
+espTab:AddSeparator()
+espTab:AddLabel("=== Visibilidad ===")
+espTab:AddToggle("Detección de pared", function(state)
+    if XLORENs.Chams then XLORENs.Chams.Settings.UseWallCheck = state end
+end)
+espTab:AddLabel("Color Visible")
+local vr = espTab:AddSlider("Visible R", 0, 255, 0, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.VisibleColor = Color3.fromRGB(v, vg.Get(), vb.Get())
+    end
+end)
+local vg = espTab:AddSlider("Visible G", 0, 255, 255, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.VisibleColor = Color3.fromRGB(vr.Get(), v, vb.Get())
+    end
+end)
+local vb = espTab:AddSlider("Visible B", 0, 255, 0, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.VisibleColor = Color3.fromRGB(vr.Get(), vg.Get(), v)
+    end
+end)
+espTab:AddLabel("Color Oculto")
+local hr = espTab:AddSlider("Oculto R", 0, 255, 255, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.HiddenColor = Color3.fromRGB(v, hg.Get(), hb.Get())
+    end
+end)
+local hg = espTab:AddSlider("Oculto G", 0, 255, 0, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.HiddenColor = Color3.fromRGB(hr.Get(), v, hb.Get())
+    end
+end)
+local hb = espTab:AddSlider("Oculto B", 0, 255, 0, function(v)
+    if XLORENs.Chams then
+        XLORENs.Chams.Settings.HiddenColor = Color3.fromRGB(hr.Get(), hg.Get(), v)
+    end
 end)
 
 -- === Pestaña WallChecker ===
@@ -915,7 +968,7 @@ aboutTab:AddLabel("v3.0 - All-in-One")
 aboutTab:AddLabel("")
 aboutTab:AddLabel("Módulos:")
 aboutTab:AddLabel("• Aimbot v4 (Orgánico)")
-aboutTab:AddLabel("• ESP (Chams + Box)")
+aboutTab:AddLabel("• ESP (Chams + Box + Info)")
 aboutTab:AddLabel("• Trigger Bot")
 aboutTab:AddLabel("• No Recoil")
 aboutTab:AddLabel("• Console Bypass")
