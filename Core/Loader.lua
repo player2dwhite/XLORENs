@@ -70,7 +70,7 @@ function XLORENs:Initialize()
     end
 
     -- ESP
-    self.Chams = SafeLoadModule("Chams", "ESP/Chams.lua") or {}
+    self.Chams = SafeLoadModule("Charms", "ESP/Chams.lua") or {}
     if self.Chams and self.Chams.Initialize then
         self.Chams:Initialize(self)
     end
