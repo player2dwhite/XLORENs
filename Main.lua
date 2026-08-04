@@ -1,5 +1,5 @@
 --[=[
-    XLORENs - Main (con Aimbot v4 integrado)
+    XLORENs - Main (con UI embebida y Fullbright)
 ]=]
 
 local Players = game:GetService("Players")
@@ -7,11 +7,42 @@ local LocalPlayer = Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
 
 print("[XLORENs] Iniciando...")
 
 -- ====================================================
--- FUNCIÓN DE UI EMBEBIDA (alternativa si falla Window.lua)
+-- FULLBRIGHT
+-- ====================================================
+local fullbrightEnabled = false
+local fullbrightConnection = nil
+
+local function toggleFullbright(state)
+    fullbrightEnabled = state
+    if fullbrightConnection then
+        fullbrightConnection:Disconnect()
+        fullbrightConnection = nil
+    end
+    if state then
+        fullbrightConnection = RunService.RenderStepped:Connect(function()
+            Lighting.ClockTime = 12
+            Lighting:SetMinutesAfterMidnight(720)
+            Lighting.FogEnd = 100000
+            Lighting.FogStart = 0
+            if Lighting:FindFirstChild("Atmosphere") then
+                Lighting.Atmosphere:Destroy()
+            end
+            for _, child in ipairs(Lighting:GetChildren()) do
+                if child:IsA("Atmosphere") or child:IsA("Sky") or child.Name == "Fog" then
+                    child:Destroy()
+                end
+            end
+        end)
+    end
+end
+
+-- ====================================================
+-- UI EMBEBIDA (sin depender de Window.lua)
 -- ====================================================
 local function CreateUI(config)
     config = config or {}
@@ -572,22 +603,9 @@ else
     }
 end
 
--- Asegurar que la UI exista
+-- Asegurar UI embebida
 if not XLORENs.UI or not XLORENs.UI.CreateWindow then
     XLORENs.UI = { CreateWindow = CreateUI }
-end
-
--- ====================================================
--- CARGAR ESP (Chams) si no se cargó desde Loader
--- ====================================================
-if not XLORENs.Chams then
-    pcall(function()
-        local ChamsModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/player2dwhite/XLORENs/main/ESP/Chams.lua"))()
-        if ChamsModule then
-            XLORENs.Chams = ChamsModule:Init(XLORENs)
-            print("[XLORENs] ESP cargado correctamente.")
-        end
-    end)
 end
 
 -- ====================================================
@@ -595,8 +613,6 @@ end
 -- ====================================================
 print("[XLORENs] Creando ventana...")
 local window = XLORENs.UI:CreateWindow({ Name = "XLORENs Pro", Keybind = "K" })
-
--- Forzar apertura
 task.wait(0.2)
 window:Open()
 print("[XLORENs] Ventana abierta automáticamente.")
@@ -667,16 +683,15 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ====================================================
--- BUCLE PRINCIPAL (con dt para el Aimbot v4)
+-- BUCLE PRINCIPAL (con dt)
 -- ====================================================
 local lastTime = tick()
 
 RunService.RenderStepped:Connect(function()
     local now = tick()
-    local dt = math.min(now - lastTime, 0.05) -- Evitar dt demasiado grande
+    local dt = math.min(now - lastTime, 0.05)
     lastTime = now
 
-    -- ===== Aimbot v4 =====
     if XLORENs.Aimbot and XLORENs.Aimbot.Settings.General.Enabled then
         local char = LocalPlayer.Character
         if char then
@@ -687,9 +702,6 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-
-    -- ===== ESP (actualización automática) =====
-    -- El ESP ya se actualiza solo con Heartbeat
 end)
 
 -- ====================================================
@@ -699,13 +711,9 @@ end)
 -- === Pestaña Aimbot ===
 local aimTab = window:AddTab("Aimbot")
 
--- General
 local aimEnabledToggle = aimTab:AddToggle("Aimbot", function(state)
-    if state then
-        if XLORENs.Aimbot then XLORENs.Aimbot:Enable() end
-    else
-        if XLORENs.Aimbot then XLORENs.Aimbot:Disable() end
-    end
+    if state then if XLORENs.Aimbot then XLORENs.Aimbot:Enable() end
+    else if XLORENs.Aimbot then XLORENs.Aimbot:Disable() end end
 end)
 
 local aimModeSelector = aimTab:AddModeSelector("Modo", {"Siempre", "Por bind", "Nunca"}, "Siempre", function(mode, bind)
@@ -716,22 +724,18 @@ local aimModeSelector = aimTab:AddModeSelector("Modo", {"Siempre", "Por bind", "
 end)
 
 aimTab:AddSeparator()
-
--- Visuales
 aimTab:AddSlider("FOV", 10, 500, 200, function(v)
     if XLORENs.Aimbot then
         XLORENs.Aimbot.Settings.FOV.Radius = v
         XLORENs.Aimbot:CreateFOVCircle()
     end
 end)
-
 aimTab:AddToggle("Mostrar FOV", function(state)
     if XLORENs.Aimbot then
         XLORENs.Aimbot.Settings.FOV.Enabled = state
         XLORENs.Aimbot:CreateFOVCircle()
     end
 end)
-
 aimTab:AddToggle("FOV Pulse", function(state)
     if XLORENs.Aimbot then
         XLORENs.Aimbot.Settings.FOV.Pulse = state
@@ -740,144 +744,79 @@ aimTab:AddToggle("FOV Pulse", function(state)
 end)
 
 aimTab:AddSeparator()
-
--- Suavizado
 aimTab:AddToggle("Smooth", function(state)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.Smooth = state
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Smooth = state end
 end)
-
 aimTab:AddSlider("Smooth Amount", 0, 100, 65, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.SmoothAmount = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.SmoothAmount = v end
 end)
-
 aimTab:AddSlider("Smooth Variation", 0, 10, 2, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.SmoothVariation = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.SmoothVariation = v end
 end)
-
 aimTab:AddSlider("Inertia", 0, 1, 0.18, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.Inertia = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Inertia = v end
 end)
 
 aimTab:AddSeparator()
-
--- Orgánico (v4)
 aimTab:AddLabel("=== Movimiento Orgánico ===")
-
 aimTab:AddToggle("Offset Humano", function(state)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.Offset.Enabled = state
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Offset.Enabled = state end
 end)
-
 aimTab:AddSlider("Offset Switch Time", 0.2, 2, 0.7, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.Offset.SwitchTime = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Offset.SwitchTime = v end
 end)
-
 aimTab:AddToggle("Predicción", function(state)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.Prediction.Enabled = state
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Prediction.Enabled = state end
 end)
-
 aimTab:AddSlider("Predicción Base", 0.05, 0.3, 0.12, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.Prediction.Base = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Prediction.Base = v end
 end)
-
 aimTab:AddSlider("Predicción Variation", 0, 0.05, 0.02, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.Prediction.Variation = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Prediction.Variation = v end
 end)
-
 aimTab:AddSlider("Error de seguimiento", 0, 0.15, 0.05, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.ErrorScale = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.ErrorScale = v end
 end)
-
 aimTab:AddSlider("Overshoot", 0, 0.08, 0.02, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.Overshoot = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Overshoot = v end
 end)
-
 aimTab:AddSlider("Deadzone", 0, 10, 2, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.Deadzone = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Deadzone = v end
 end)
 
 aimTab:AddSeparator()
-
--- Velocidad de giro
 aimTab:AddLabel("=== Límites ===")
 aimTab:AddSlider("Max Turn Speed (deg/s)", 0, 720, 360, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.General.MaxTurnSpeed = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.General.MaxTurnSpeed = v end
 end)
-
 aimTab:AddSlider("View Angle", 0, 180, 90, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.General.ViewAngle = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.General.ViewAngle = v end
 end)
-
 aimTab:AddSlider("Grace Period (s)", 0, 0.5, 0.15, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.General.GracePeriod = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.General.GracePeriod = v end
 end)
-
 aimTab:AddSlider("Reaction Time (s)", 0, 0.5, 0.15, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Aim.ReactionTime = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.ReactionTime = v end
 end)
 
 aimTab:AddSeparator()
-
--- Arma
 aimTab:AddLabel("=== Arma ===")
 aimTab:AddToggle("No Recoil", function(state)
     if state then startNoRecoil() else stopNoRecoil() end
 end)
-
 aimTab:AddToggle("Recoil (cámara)", function(state)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Recoil.Enabled = state
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Recoil.Enabled = state end
 end)
-
 aimTab:AddSlider("Recoil Intensity", 0, 1, 0.3, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Recoil.Intensity = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Recoil.Intensity = v end
 end)
-
 aimTab:AddSlider("Recoil Decay", 0.5, 1, 0.9, function(v)
-    if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.Recoil.Decay = v
-    end
+    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Recoil.Decay = v end
 end)
 
 -- === Pestaña Trigger ===
 local trigTab = window:AddTab("Trigger")
-trigTab:AddToggle("Trigger Bot", function(state)
-    trigEnabled = state
-end)
+trigTab:AddToggle("Trigger Bot", function(state) trigEnabled = state end)
 local trigModeSelector = trigTab:AddModeSelector("Modo", {"Siempre", "Por bind", "Nunca"}, trigMode, function(mode, bind)
     trigMode = mode
     trigBind = bind
@@ -886,28 +825,17 @@ end)
 -- === Pestaña ESP ===
 local espTab = window:AddTab("ESP")
 espTab:AddToggle("ESP", function(state)
-    if state then
-        if XLORENs.Chams then XLORENs.Chams:Enable() end
-    else
-        if XLORENs.Chams then XLORENs.Chams:Disable() end
-    end
+    if state then if XLORENs.Chams then XLORENs.Chams:Enable() end
+    else if XLORENs.Chams then XLORENs.Chams:Disable() end end
 end)
-
 espTab:AddSeparator()
 espTab:AddLabel("=== Highlights ===")
 espTab:AddToggle("Chams", function(state)
-    if XLORENs.Chams then
-        XLORENs.Chams.Settings.ChamsEnabled = state
-        if state and XLORENs.Chams.Settings.Enabled then XLORENs.Chams:UpdateAll() end
-    end
+    if XLORENs.Chams then XLORENs.Chams.Settings.ChamsEnabled = state end
 end)
 espTab:AddToggle("Color por salud", function(state)
     if XLORENs.Chams then XLORENs.Chams.Settings.ChamsByHealth = state end
 end)
-espTab:AddToggle("Color por equipo", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.ChamsByTeam = state end
-end)
-
 espTab:AddSeparator()
 espTab:AddLabel("=== Box ESP ===")
 espTab:AddToggle("Box ESP", function(state)
@@ -916,28 +844,6 @@ end)
 espTab:AddSlider("Box Grosor", 1, 5, 2, function(v)
     if XLORENs.Chams then XLORENs.Chams.Settings.BoxThickness = v end
 end)
-
-espTab:AddSeparator()
-espTab:AddLabel("=== Información ===")
-espTab:AddToggle("Info ESP", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.InfoEnabled = state end
-end)
-espTab:AddToggle("Mostrar nombre", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.ShowName = state end
-end)
-espTab:AddToggle("Mostrar salud", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.ShowHealth = state end
-end)
-espTab:AddToggle("Mostrar distancia", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.ShowDistance = state end
-end)
-
-espTab:AddSeparator()
-espTab:AddLabel("=== Visibilidad ===")
-espTab:AddToggle("Detección de pared", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.UseWallCheck = state end
-end)
-
 espTab:AddSeparator()
 espTab:AddLabel("=== Colores ===")
 local cr = espTab:AddSlider("Color R", 0, 255, 0, function(v)
@@ -996,6 +902,11 @@ miscTab:AddToggle("Silenciar logs (Bypass)", function(state)
         if state then XLORENs.ConsoleBypass:Enable() else XLORENs.ConsoleBypass:Disable() end
     end
 end)
+miscTab:AddSeparator()
+miscTab:AddLabel("=== Fullbright ===")
+miscTab:AddToggle("Fullbright (Loop)", function(state)
+    toggleFullbright(state)
+end)
 
 -- === Pestaña About ===
 local aboutTab = window:AddTab("About")
@@ -1004,10 +915,11 @@ aboutTab:AddLabel("v3.0 - All-in-One")
 aboutTab:AddLabel("")
 aboutTab:AddLabel("Módulos:")
 aboutTab:AddLabel("• Aimbot v4 (Orgánico)")
-aboutTab:AddLabel("• ESP (Chams + Box + Info)")
+aboutTab:AddLabel("• ESP (Chams + Box)")
 aboutTab:AddLabel("• Trigger Bot")
 aboutTab:AddLabel("• No Recoil")
 aboutTab:AddLabel("• Console Bypass")
+aboutTab:AddLabel("• Fullbright")
 aboutTab:AddLabel("")
 aboutTab:AddLabel("Teclas:")
 aboutTab:AddLabel("• K - Abrir/cerrar menú")
@@ -1030,4 +942,4 @@ game:GetService("StarterGui"):SetCore("SendNotification", {
     Duration = 4
 })
 
-print("[XLORENs] ¡Sistema listo! Aimbot v4 integrado.")
+print("[XLORENs] ¡Sistema listo! Fullbright y UI embebida activos.")
