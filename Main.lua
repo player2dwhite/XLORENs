@@ -1,47 +1,19 @@
 --[=[
-    XLORENs - Main (UI embebida, Fullbright, Aimbot v4, ESP completo)
+    XLORENs - Main
+    Punto de entrada con UI completa (ESP, Aimbot, Trigger, About, Movement).
 ]=]
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
 
 print("[XLORENs] Iniciando...")
 
 -- ====================================================
--- FULLBRIGHT
--- ====================================================
-local fullbrightEnabled = false
-local fullbrightConnection = nil
-
-local function toggleFullbright(state)
-    fullbrightEnabled = state
-    if fullbrightConnection then
-        fullbrightConnection:Disconnect()
-        fullbrightConnection = nil
-    end
-    if state then
-        fullbrightConnection = RunService.RenderStepped:Connect(function()
-            Lighting.ClockTime = 12
-            Lighting:SetMinutesAfterMidnight(720)
-            Lighting.FogEnd = 100000
-            Lighting.FogStart = 0
-            if Lighting:FindFirstChild("Atmosphere") then
-                Lighting.Atmosphere:Destroy()
-            end
-            for _, child in ipairs(Lighting:GetChildren()) do
-                if child:IsA("Atmosphere") or child:IsA("Sky") or child.Name == "Fog" then
-                    child:Destroy()
-                end
-            end
-        end)
-    end
-end
-
--- ====================================================
--- UI EMBEBIDA (sin depender de Window.lua)
+-- UI EMBEBIDA (se usa si Window.lua falla)
 -- ====================================================
 local function CreateUI(config)
     config = config or {}
@@ -133,14 +105,15 @@ local function CreateUI(config)
         layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Parent = frame
 
+        -- ========== Elementos de UI ==========
         function tab:AddToggle(text, callback)
             local active = false
-            local frame2 = Instance.new("Frame")
-            frame2.Size = UDim2.new(1, -5, 0, 44)
-            frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-            frame2.BorderSizePixel = 0
-            frame2.Parent = frame
-            Instance.new("UICorner", frame2).CornerRadius = UDim.new(0, 8)
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(1, -5, 0, 44)
+            f.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+            f.BorderSizePixel = 0
+            f.Parent = frame
+            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
 
             local label = Instance.new("TextLabel")
             label.Size = UDim2.new(1, -60, 1, 0)
@@ -151,14 +124,14 @@ local function CreateUI(config)
             label.TextSize = 13
             label.TextColor3 = Color3.fromRGB(220, 220, 235)
             label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = frame2
+            label.Parent = f
 
             local bg = Instance.new("Frame")
             bg.Size = UDim2.new(0, 42, 0, 24)
             bg.Position = UDim2.new(1, -52, 0.5, -12)
             bg.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
             bg.BorderSizePixel = 0
-            bg.Parent = frame2
+            bg.Parent = f
             Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
 
             local knob = Instance.new("Frame")
@@ -173,7 +146,7 @@ local function CreateUI(config)
             btn2.Size = UDim2.new(1, 0, 1, 0)
             btn2.BackgroundTransparency = 1
             btn2.Text = ""
-            btn2.Parent = frame2
+            btn2.Parent = f
 
             local function setState(state)
                 active = state
@@ -188,12 +161,12 @@ local function CreateUI(config)
 
         function tab:AddSlider(text, min, max, default, callback)
             local value = default or min
-            local frame2 = Instance.new("Frame")
-            frame2.Size = UDim2.new(1, -5, 0, 64)
-            frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-            frame2.BorderSizePixel = 0
-            frame2.Parent = frame
-            Instance.new("UICorner", frame2).CornerRadius = UDim.new(0, 8)
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(1, -5, 0, 64)
+            f.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+            f.BorderSizePixel = 0
+            f.Parent = frame
+            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
 
             local label = Instance.new("TextLabel")
             label.Size = UDim2.new(1, -12, 0, 22)
@@ -204,14 +177,14 @@ local function CreateUI(config)
             label.TextSize = 13
             label.TextColor3 = Color3.fromRGB(220, 220, 235)
             label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = frame2
+            label.Parent = f
 
             local track = Instance.new("Frame")
             track.Size = UDim2.new(1, -24, 0, 6)
             track.Position = UDim2.new(0, 12, 0, 42)
             track.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
             track.BorderSizePixel = 0
-            track.Parent = frame2
+            track.Parent = f
             Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
 
             local p = math.clamp((value - min) / (max - min), 0, 1)
@@ -266,12 +239,12 @@ local function CreateUI(config)
         function tab:AddKeybind(text, defaultKey, callback)
             local key = defaultKey or "None"
             local binding = false
-            local frame2 = Instance.new("Frame")
-            frame2.Size = UDim2.new(1, -5, 0, 44)
-            frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-            frame2.BorderSizePixel = 0
-            frame2.Parent = frame
-            Instance.new("UICorner", frame2).CornerRadius = UDim.new(0, 8)
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(1, -5, 0, 44)
+            f.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+            f.BorderSizePixel = 0
+            f.Parent = frame
+            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
 
             local label = Instance.new("TextLabel")
             label.Size = UDim2.new(0, 160, 1, 0)
@@ -282,7 +255,7 @@ local function CreateUI(config)
             label.TextSize = 13
             label.TextColor3 = Color3.fromRGB(220, 220, 235)
             label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = frame2
+            label.Parent = f
 
             local btn2 = Instance.new("TextButton")
             btn2.Size = UDim2.new(0, 60, 0, 28)
@@ -293,7 +266,7 @@ local function CreateUI(config)
             btn2.TextSize = 11
             btn2.TextColor3 = Color3.fromRGB(255, 255, 255)
             btn2.AutoButtonColor = false
-            btn2.Parent = frame2
+            btn2.Parent = f
             Instance.new("UICorner", btn2).CornerRadius = UDim.new(0, 6)
 
             btn2.MouseButton1Click:Connect(function()
@@ -345,13 +318,13 @@ local function CreateUI(config)
         function tab:AddDropdown(text, options, default, callback)
             local selected = default or options[1] or ""
             local open = false
-            local frame2 = Instance.new("Frame")
-            frame2.Size = UDim2.new(1, -5, 0, 44)
-            frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-            frame2.BorderSizePixel = 0
-            frame2.ClipsDescendants = false
-            frame2.Parent = frame
-            Instance.new("UICorner", frame2).CornerRadius = UDim.new(0, 8)
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(1, -5, 0, 44)
+            f.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+            f.BorderSizePixel = 0
+            f.ClipsDescendants = false
+            f.Parent = frame
+            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
 
             local label = Instance.new("TextLabel")
             label.Size = UDim2.new(0, 100, 1, 0)
@@ -362,7 +335,7 @@ local function CreateUI(config)
             label.TextSize = 13
             label.TextColor3 = Color3.fromRGB(220, 220, 235)
             label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = frame2
+            label.Parent = f
 
             local btn2 = Instance.new("TextButton")
             btn2.Size = UDim2.new(1, -120, 0, 28)
@@ -373,7 +346,7 @@ local function CreateUI(config)
             btn2.TextSize = 11
             btn2.TextColor3 = Color3.fromRGB(255, 255, 255)
             btn2.AutoButtonColor = false
-            btn2.Parent = frame2
+            btn2.Parent = f
             Instance.new("UICorner", btn2).CornerRadius = UDim.new(0, 6)
 
             local dropdownFrame = Instance.new("Frame")
@@ -383,7 +356,7 @@ local function CreateUI(config)
             dropdownFrame.BorderSizePixel = 0
             dropdownFrame.ClipsDescendants = true
             dropdownFrame.Visible = false
-            dropdownFrame.Parent = frame2
+            dropdownFrame.Parent = f
             Instance.new("UICorner", dropdownFrame).CornerRadius = UDim.new(0, 6)
 
             local scroll = Instance.new("ScrollingFrame")
@@ -449,12 +422,12 @@ local function CreateUI(config)
             local bindKey = "None"
             local binding = false
 
-            local frame2 = Instance.new("Frame")
-            frame2.Size = UDim2.new(1, -5, 0, 90)
-            frame2.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
-            frame2.BorderSizePixel = 0
-            frame2.Parent = frame
-            Instance.new("UICorner", frame2).CornerRadius = UDim.new(0, 8)
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(1, -5, 0, 90)
+            f.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+            f.BorderSizePixel = 0
+            f.Parent = frame
+            Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
 
             local label = Instance.new("TextLabel")
             label.Size = UDim2.new(1, -12, 0, 22)
@@ -465,13 +438,13 @@ local function CreateUI(config)
             label.TextSize = 13
             label.TextColor3 = Color3.fromRGB(220, 220, 235)
             label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Parent = frame2
+            label.Parent = f
 
             local modeContainer = Instance.new("Frame")
             modeContainer.Size = UDim2.new(1, -24, 0, 24)
             modeContainer.Position = UDim2.new(0, 12, 0, 32)
             modeContainer.BackgroundTransparency = 1
-            modeContainer.Parent = frame2
+            modeContainer.Parent = f
 
             local modeButtons = {}
             for i, modeName in ipairs(modes) do
@@ -506,7 +479,7 @@ local function CreateUI(config)
             bindBtn.TextSize = 11
             bindBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
             bindBtn.AutoButtonColor = false
-            bindBtn.Parent = frame2
+            bindBtn.Parent = f
             Instance.new("UICorner", bindBtn).CornerRadius = UDim.new(0, 4)
 
             bindBtn.MouseButton1Click:Connect(function()
@@ -588,8 +561,8 @@ end)
 
 if loaderSuccess and loaderResult then
     XLORENs = loaderResult
-    XLORENs:Init()
-    print("[XLORENs] Loader cargado correctamente.")
+    XLORENs:Initialize()
+    print("[XLORENs] Loader ejecutado correctamente.")
 else
     print("[XLORENs] Loader falló. Creando estructura básica...")
     XLORENs = {
@@ -599,16 +572,17 @@ else
         TargetManager = nil,
         Aimbot = nil,
         Chams = nil,
+        Movement = nil,
     }
 end
 
--- Asegurar UI embebida
+-- Asegurar UI
 if not XLORENs.UI or not XLORENs.UI.CreateWindow then
     XLORENs.UI = { CreateWindow = CreateUI }
 end
 
 -- ====================================================
--- CREAR VENTANA
+-- CREAR VENTANA (usando UI/Window.lua o la embebida)
 -- ====================================================
 print("[XLORENs] Creando ventana...")
 local window = XLORENs.UI:CreateWindow({ Name = "XLORENs Pro", Keybind = "K" })
@@ -617,11 +591,19 @@ window:Open()
 print("[XLORENs] Ventana abierta automáticamente.")
 
 -- ====================================================
--- NO RECOIL
+-- VARIABLES DE ESTADO
 -- ====================================================
 local noRecoilRunning = false
 local noRecoilConn = nil
+local trigEnabled = false
+local trigMode = "Nunca"
+local trigBind = "F"
+local fullbrightEnabled = false
+local fullbrightConnection = nil
 
+-- ====================================================
+-- FUNCIONES (No Recoil, Fullbright, Trigger)
+-- ====================================================
 local function startNoRecoil()
     if noRecoilRunning then return end
     noRecoilRunning = true
@@ -644,12 +626,29 @@ local function stopNoRecoil()
     end
 end
 
--- ====================================================
--- TRIGGER BOT
--- ====================================================
-local trigEnabled = false
-local trigMode = "Nunca"
-local trigBind = "F"
+local function toggleFullbright(state)
+    fullbrightEnabled = state
+    if fullbrightConnection then
+        fullbrightConnection:Disconnect()
+        fullbrightConnection = nil
+    end
+    if state then
+        fullbrightConnection = RunService.RenderStepped:Connect(function()
+            Lighting.ClockTime = 12
+            Lighting:SetMinutesAfterMidnight(720)
+            Lighting.FogEnd = 100000
+            Lighting.FogStart = 0
+            if Lighting:FindFirstChild("Atmosphere") then
+                Lighting.Atmosphere:Destroy()
+            end
+            for _, child in ipairs(Lighting:GetChildren()) do
+                if child:IsA("Atmosphere") or child:IsA("Sky") or child.Name == "Fog" then
+                    child:Destroy()
+                end
+            end
+        end)
+    end
+end
 
 local function shouldTrigger()
     if not trigEnabled then return false end
@@ -682,272 +681,334 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ====================================================
--- BUCLE PRINCIPAL (con dt)
+-- BUCLE PRINCIPAL
 -- ====================================================
 local lastTime = tick()
 
 RunService.RenderStepped:Connect(function()
-    local now = tick()
-    local dt = math.min(now - lastTime, 0.05)
-    lastTime = now
+    local currentTime = tick()
+    local deltaTime = math.min(currentTime - lastTime, 0.05)
+    lastTime = currentTime
 
-    if XLORENs.Aimbot and XLORENs.Aimbot.Settings.General.Enabled then
-        local char = LocalPlayer.Character
-        if char then
-            local origin = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
-            if origin then
-                local target = XLORENs.TargetManager:GetTarget(origin.Position)
-                XLORENs.Aimbot:Update(target, dt)
+    if XLORENs.Aimbot and XLORENs.Aimbot._settings.General.Enabled then
+        local character = LocalPlayer.Character
+        if character then
+            local originPart = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+            if originPart then
+                local target = XLORENs.TargetManager:GetTarget(originPart.Position)
+                XLORENs.Aimbot:Update(target, deltaTime)
             end
         end
     end
 end)
 
 -- ====================================================
--- CONFIGURACIÓN DE UI
+-- CONFIGURACIÓN DE UI (todas las pestañas completas)
 -- ====================================================
 
--- === Pestaña Aimbot ===
+-- Pestaña Aimbot
 local aimTab = window:AddTab("Aimbot")
-
-local aimEnabledToggle = aimTab:AddToggle("Aimbot", function(state)
-    if state then if XLORENs.Aimbot then XLORENs.Aimbot:Enable() end
-    else if XLORENs.Aimbot then XLORENs.Aimbot:Disable() end end
+local aimToggle = aimTab:AddToggle("Aimbot", function(state)
+    if state then
+        if XLORENs.Aimbot then XLORENs.Aimbot:Enable() end
+    else
+        if XLORENs.Aimbot then XLORENs.Aimbot:Disable() end
+    end
 end)
 
-local aimModeSelector = aimTab:AddModeSelector("Modo", {"Siempre", "Por bind", "Nunca"}, "Siempre", function(mode, bind)
+aimTab:AddModeSelector("Modo", {"Siempre", "Por bind", "Nunca"}, "Siempre", function(mode, bind)
     if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.General.Mode = mode
-        XLORENs.Aimbot.Settings.General.BindKey = bind
+        XLORENs.Aimbot._settings.General.Mode = mode
+        XLORENs.Aimbot._settings.General.BindKey = bind
     end
 end)
 
 aimTab:AddSeparator()
-aimTab:AddSlider("FOV", 10, 500, 200, function(v)
+
+-- FOV
+aimTab:AddSlider("FOV (pixels)", 10, 500, 200, function(v)
     if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.FOV.Radius = v
+        XLORENs.Aimbot._settings.FOV.Radius = v
         XLORENs.Aimbot:CreateFOVCircle()
     end
 end)
+
 aimTab:AddToggle("Mostrar FOV", function(state)
     if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.FOV.Enabled = state
+        XLORENs.Aimbot._settings.FOV.Enabled = state
         XLORENs.Aimbot:CreateFOVCircle()
     end
 end)
+
 aimTab:AddToggle("FOV Pulse", function(state)
     if XLORENs.Aimbot then
-        XLORENs.Aimbot.Settings.FOV.Pulse = state
+        XLORENs.Aimbot._settings.FOV.Pulse = state
         XLORENs.Aimbot:CreateFOVCircle()
     end
 end)
 
 aimTab:AddSeparator()
+
+-- Modo de apuntado
+aimTab:AddDropdown("Modo de apuntado", {"HeadOnly", "HumanLike"}, "HumanLike", function(selected)
+    if XLORENs.Aimbot then
+        XLORENs.Aimbot._settings.Aim.AimMode = selected
+    end
+end)
+
+aimTab:AddSeparator()
+
+-- Smooth
 aimTab:AddToggle("Smooth", function(state)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Smooth = state end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.Smooth = state end
 end)
+
 aimTab:AddSlider("Smooth Amount", 0, 100, 65, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.SmoothAmount = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.SmoothAmount = v end
 end)
+
 aimTab:AddSlider("Smooth Variation", 0, 10, 2, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.SmoothVariation = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.SmoothVariation = v end
 end)
+
 aimTab:AddSlider("Inertia", 0, 1, 0.18, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Inertia = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.Inertia = v end
 end)
 
 aimTab:AddSeparator()
 aimTab:AddLabel("=== Movimiento Orgánico ===")
+
 aimTab:AddToggle("Offset Humano", function(state)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Offset.Enabled = state end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.Offset.Enabled = state end
 end)
+
 aimTab:AddSlider("Offset Switch Time", 0.2, 2, 0.7, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Offset.SwitchTime = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.Offset.SwitchTime = v end
 end)
+
 aimTab:AddToggle("Predicción", function(state)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Prediction.Enabled = state end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.Prediction.Enabled = state end
 end)
+
 aimTab:AddSlider("Predicción Base", 0.05, 0.3, 0.12, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Prediction.Base = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.Prediction.Base = v end
 end)
+
 aimTab:AddSlider("Predicción Variation", 0, 0.05, 0.02, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Prediction.Variation = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.Prediction.Variation = v end
 end)
+
 aimTab:AddSlider("Error de seguimiento", 0, 0.15, 0.05, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.ErrorScale = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.ErrorScale = v end
 end)
+
 aimTab:AddSlider("Overshoot", 0, 0.08, 0.02, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Overshoot = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.Overshoot = v end
 end)
+
 aimTab:AddSlider("Deadzone", 0, 10, 2, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.Deadzone = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.Deadzone = v end
 end)
 
 aimTab:AddSeparator()
 aimTab:AddLabel("=== Límites ===")
+
 aimTab:AddSlider("Max Turn Speed (deg/s)", 0, 720, 360, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.General.MaxTurnSpeed = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.General.MaxTurnSpeed = v end
 end)
+
 aimTab:AddSlider("View Angle", 0, 180, 90, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.General.ViewAngle = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.General.ViewAngle = v end
 end)
+
 aimTab:AddSlider("Grace Period (s)", 0, 0.5, 0.15, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.General.GracePeriod = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.General.GracePeriod = v end
 end)
+
 aimTab:AddSlider("Reaction Time (s)", 0, 0.5, 0.15, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Aim.ReactionTime = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Aim.ReactionTime = v end
 end)
 
 aimTab:AddSeparator()
 aimTab:AddLabel("=== Arma ===")
+
 aimTab:AddToggle("No Recoil", function(state)
     if state then startNoRecoil() else stopNoRecoil() end
 end)
+
 aimTab:AddToggle("Recoil (cámara)", function(state)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Recoil.Enabled = state end
-end)
-aimTab:AddSlider("Recoil Intensity", 0, 1, 0.3, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Recoil.Intensity = v end
-end)
-aimTab:AddSlider("Recoil Decay", 0.5, 1, 0.9, function(v)
-    if XLORENs.Aimbot then XLORENs.Aimbot.Settings.Recoil.Decay = v end
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Recoil.Enabled = state end
 end)
 
--- === Pestaña Trigger ===
+aimTab:AddSlider("Recoil Intensity", 0, 1, 0.3, function(v)
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Recoil.Intensity = v end
+end)
+
+aimTab:AddSlider("Recoil Decay", 0.5, 1, 0.9, function(v)
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.Recoil.Decay = v end
+end)
+
+aimTab:AddSeparator()
+aimTab:AddLabel("=== Auto-Scope ===")
+aimTab:AddToggle("Auto-Scope (Móvil)", function(state)
+    if XLORENs.Aimbot then XLORENs.Aimbot._settings.AutoScope = state end
+end)
+
+-- Pestaña Trigger
 local trigTab = window:AddTab("Trigger")
 trigTab:AddToggle("Trigger Bot", function(state) trigEnabled = state end)
-local trigModeSelector = trigTab:AddModeSelector("Modo", {"Siempre", "Por bind", "Nunca"}, trigMode, function(mode, bind)
+trigTab:AddModeSelector("Modo", {"Siempre", "Por bind", "Nunca"}, trigMode, function(mode, bind)
     trigMode = mode
     trigBind = bind
 end)
 
--- === Pestaña ESP ===
+-- Pestaña ESP
 local espTab = window:AddTab("ESP")
 espTab:AddToggle("ESP", function(state)
-    if state then if XLORENs.Chams then XLORENs.Chams:Enable() end
-    else if XLORENs.Chams then XLORENs.Chams:Disable() end end
+    if state then
+        if XLORENs.Chams then XLORENs.Chams:Enable() end
+    else
+        if XLORENs.Chams then XLORENs.Chams:Disable() end
+    end
 end)
+
 espTab:AddSeparator()
 espTab:AddLabel("=== Highlights ===")
 espTab:AddToggle("Chams", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.ChamsEnabled = state end
+    if XLORENs.Chams then XLORENs.Chams._settings.Highlights.Enabled = state end
 end)
 espTab:AddToggle("Color por salud", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.ChamsByHealth = state end
+    if XLORENs.Chams then XLORENs.Chams._settings.Highlights.ColorByHealth = state end
 end)
 espTab:AddToggle("Color por equipo", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.ChamsByTeam = state end
+    if XLORENs.Chams then XLORENs.Chams._settings.Highlights.ColorByTeam = state end
 end)
+
 espTab:AddSeparator()
 espTab:AddLabel("=== Box ESP ===")
 espTab:AddToggle("Box ESP", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.BoxEnabled = state end
+    if XLORENs.Chams then XLORENs.Chams._settings.Box.Enabled = state end
 end)
 espTab:AddSlider("Box Grosor", 1, 5, 2, function(v)
-    if XLORENs.Chams then XLORENs.Chams.Settings.BoxThickness = v end
+    if XLORENs.Chams then XLORENs.Chams._settings.Box.Thickness = v end
 end)
+
 espTab:AddSeparator()
 espTab:AddLabel("=== Información ===")
 espTab:AddToggle("Info ESP", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.InfoEnabled = state end
+    if XLORENs.Chams then XLORENs.Chams._settings.Info.Enabled = state end
 end)
 espTab:AddToggle("Mostrar nombre", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.ShowName = state end
+    if XLORENs.Chams then XLORENs.Chams._settings.Info.ShowName = state end
 end)
 espTab:AddToggle("Mostrar salud", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.ShowHealth = state end
+    if XLORENs.Chams then XLORENs.Chams._settings.Info.ShowHealth = state end
 end)
 espTab:AddToggle("Mostrar distancia", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.ShowDistance = state end
+    if XLORENs.Chams then XLORENs.Chams._settings.Info.ShowDistance = state end
 end)
+
+espTab:AddSeparator()
+espTab:AddLabel("=== Visibilidad ===")
+espTab:AddToggle("Detección de pared", function(state)
+    if XLORENs.Chams then XLORENs.Chams._settings.Visibility.UseWallCheck = state end
+end)
+
 espTab:AddSeparator()
 espTab:AddLabel("=== Colores ===")
 local cr = espTab:AddSlider("Color R", 0, 255, 0, function(v)
     if XLORENs.Chams then
         local c = Color3.fromRGB(v, cg.Get(), cb.Get())
-        XLORENs.Chams.Settings.ChamsColor = c
-        XLORENs.Chams.Settings.BoxColor = c
+        XLORENs.Chams._settings.Highlights.Color = c
+        XLORENs.Chams._settings.Box.Color = c
     end
 end)
 local cg = espTab:AddSlider("Color G", 0, 255, 255, function(v)
     if XLORENs.Chams then
         local c = Color3.fromRGB(cr.Get(), v, cb.Get())
-        XLORENs.Chams.Settings.ChamsColor = c
-        XLORENs.Chams.Settings.BoxColor = c
+        XLORENs.Chams._settings.Highlights.Color = c
+        XLORENs.Chams._settings.Box.Color = c
     end
 end)
 local cb = espTab:AddSlider("Color B", 0, 255, 0, function(v)
     if XLORENs.Chams then
         local c = Color3.fromRGB(cr.Get(), cg.Get(), v)
-        XLORENs.Chams.Settings.ChamsColor = c
-        XLORENs.Chams.Settings.BoxColor = c
+        XLORENs.Chams._settings.Highlights.Color = c
+        XLORENs.Chams._settings.Box.Color = c
     end
 end)
 espTab:AddSlider("Transparencia", 0, 100, 70, function(v)
-    if XLORENs.Chams then XLORENs.Chams.Settings.ChamsTransparency = v / 100 end
-end)
-espTab:AddSeparator()
-espTab:AddLabel("=== Visibilidad ===")
-espTab:AddToggle("Detección de pared", function(state)
-    if XLORENs.Chams then XLORENs.Chams.Settings.UseWallCheck = state end
-end)
-espTab:AddLabel("Color Visible")
-local vr = espTab:AddSlider("Visible R", 0, 255, 0, function(v)
-    if XLORENs.Chams then
-        XLORENs.Chams.Settings.VisibleColor = Color3.fromRGB(v, vg.Get(), vb.Get())
-    end
-end)
-local vg = espTab:AddSlider("Visible G", 0, 255, 255, function(v)
-    if XLORENs.Chams then
-        XLORENs.Chams.Settings.VisibleColor = Color3.fromRGB(vr.Get(), v, vb.Get())
-    end
-end)
-local vb = espTab:AddSlider("Visible B", 0, 255, 0, function(v)
-    if XLORENs.Chams then
-        XLORENs.Chams.Settings.VisibleColor = Color3.fromRGB(vr.Get(), vg.Get(), v)
-    end
-end)
-espTab:AddLabel("Color Oculto")
-local hr = espTab:AddSlider("Oculto R", 0, 255, 255, function(v)
-    if XLORENs.Chams then
-        XLORENs.Chams.Settings.HiddenColor = Color3.fromRGB(v, hg.Get(), hb.Get())
-    end
-end)
-local hg = espTab:AddSlider("Oculto G", 0, 255, 0, function(v)
-    if XLORENs.Chams then
-        XLORENs.Chams.Settings.HiddenColor = Color3.fromRGB(hr.Get(), v, hb.Get())
-    end
-end)
-local hb = espTab:AddSlider("Oculto B", 0, 255, 0, function(v)
-    if XLORENs.Chams then
-        XLORENs.Chams.Settings.HiddenColor = Color3.fromRGB(hr.Get(), hg.Get(), v)
-    end
+    if XLORENs.Chams then XLORENs.Chams._settings.Highlights.Transparency = v / 100 end
 end)
 
--- === Pestaña WallChecker ===
+-- Pestaña WallChecker
 local wallTab = window:AddTab("WallCheck")
 wallTab:AddSlider("Min Visibility", 0, 1, 0.15, function(v)
-    if XLORENs.WallChecker and XLORENs.WallChecker.Settings then
-        XLORENs.WallChecker.Settings.MinimumVisibility = v
-    end
+    if XLORENs.WallChecker then XLORENs.WallChecker._settings.MinimumVisibility = v end
 end)
 wallTab:AddSlider("Max Distance", 100, 1000, 500, function(v)
-    if XLORENs.WallChecker and XLORENs.WallChecker.Settings then
-        XLORENs.WallChecker.Settings.MaxDistance = v
-    end
+    if XLORENs.WallChecker then XLORENs.WallChecker._settings.MaxDistance = v end
 end)
 wallTab:AddToggle("Team Check", function(state)
-    if XLORENs.WallChecker and XLORENs.WallChecker.Settings then
-        XLORENs.WallChecker.Settings.TeamCheckMode = state and "Auto" or "Disabled"
-    end
+    if XLORENs.WallChecker then XLORENs.WallChecker._settings.TeamCheckMode = state and "Auto" or "Disabled" end
 end)
 wallTab:AddToggle("Ignore Same Team", function(state)
-    if XLORENs.WallChecker and XLORENs.WallChecker.Settings then
-        XLORENs.WallChecker.Settings.IgnoreSameTeam = state
-    end
+    if XLORENs.WallChecker then XLORENs.WallChecker._settings.IgnoreSameTeam = state end
 end)
 
--- === Pestaña Misc ===
+-- Pestaña Movement
+local moveTab = window:AddTab("Movement")
+moveTab:AddLabel("=== Velocidad ===")
+moveTab:AddSlider("Walk Speed", 10, 250, 16, function(v)
+    if XLORENs.Movement then XLORENs.Movement._settings.WalkSpeed = v end
+end)
+moveTab:AddSlider("Jump Power", 30, 200, 50, function(v)
+    if XLORENs.Movement then XLORENs.Movement._settings.JumpPower = v end
+end)
+moveTab:AddLabel("=== Saltos ===")
+moveTab:AddToggle("Infinite Jump", function(state)
+    if XLORENs.Movement then XLORENs.Movement._settings.InfiniteJump = state end
+end)
+moveTab:AddLabel("=== Vuelo ===")
+moveTab:AddToggle("Fly Mode", function(state)
+    if XLORENs.Movement then
+        XLORENs.Movement._settings.Fly.Enabled = state
+        if not state and XLORENs.Movement._isFlying then
+            XLORENs.Movement:ToggleFly()
+        end
+    end
+end)
+moveTab:AddSlider("Fly Speed", 10, 150, 50, function(v)
+    if XLORENs.Movement then XLORENs.Movement._settings.Fly.Speed = v end
+end)
+moveTab:AddToggle("Activar Vuelo", function(state)
+    if XLORENs.Movement and XLORENs.Movement._settings.Fly.Enabled then
+        XLORENs.Movement:ToggleFly()
+    end
+end)
+moveTab:AddLabel("=== Noclip ===")
+moveTab:AddToggle("Noclip", function(state)
+    if XLORENs.Movement then XLORENs.Movement._settings.Noclip = state end
+end)
+moveTab:AddLabel("=== Freecam ===")
+moveTab:AddToggle("Freecam", function(state)
+    if XLORENs.Movement then
+        XLORENs.Movement._settings.Freecam.Enabled = state
+        if state then
+            XLORENs.Movement:ToggleFreecam()
+        else
+            XLORENs.Movement:ToggleFreecam() -- lo apaga
+        end
+    end
+end)
+moveTab:AddSlider("Freecam Speed", 10, 150, 30, function(v)
+    if XLORENs.Movement then XLORENs.Movement._settings.Freecam.Speed = v end
+end)
+moveTab:AddSlider("Freecam Sensitivity", 0.1, 2, 0.5, function(v)
+    if XLORENs.Movement then XLORENs.Movement._settings.Freecam.Sensitivity = v end
+end)
+
+-- Pestaña Misc
 local miscTab = window:AddTab("Misc")
 miscTab:AddLabel("=== Consola ===")
 miscTab:AddToggle("Silenciar logs (Bypass)", function(state)
@@ -961,25 +1022,28 @@ miscTab:AddToggle("Fullbright (Loop)", function(state)
     toggleFullbright(state)
 end)
 
--- === Pestaña About ===
+-- Pestaña About
 local aboutTab = window:AddTab("About")
 aboutTab:AddLabel("XLORENs Pro")
-aboutTab:AddLabel("v3.0 - All-in-One")
+aboutTab:AddLabel("v3.0 - Framework Completo")
 aboutTab:AddLabel("")
 aboutTab:AddLabel("Módulos:")
 aboutTab:AddLabel("• Aimbot v4 (Orgánico)")
 aboutTab:AddLabel("• ESP (Chams + Box + Info)")
+aboutTab:AddLabel("• WallChecker (Visibilidad)")
+aboutTab:AddLabel("• TargetManager")
 aboutTab:AddLabel("• Trigger Bot")
 aboutTab:AddLabel("• No Recoil")
 aboutTab:AddLabel("• Console Bypass")
 aboutTab:AddLabel("• Fullbright")
+aboutTab:AddLabel("• Movement (Speed, Jump, Fly, Noclip, Freecam)")
 aboutTab:AddLabel("")
 aboutTab:AddLabel("Teclas:")
 aboutTab:AddLabel("• K - Abrir/cerrar menú")
 aboutTab:AddLabel("• F - Trigger rápido (bind)")
 
 -- ====================================================
--- INICIALIZAR ESP (desactivado por defecto)
+-- INICIALIZAR ESP
 -- ====================================================
 if XLORENs.Chams then
     XLORENs.Chams:Disable()
@@ -991,8 +1055,8 @@ end
 task.wait(1)
 game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "XLORENs Pro",
-    Text = "Cargado! Presiona K para cerrar/abrir.",
+    Text = "Cargado! Presiona K para abrir el menú.",
     Duration = 4
 })
 
-print("[XLORENs] ¡Sistema listo! Fullbright y UI embebida activos.")
+print("[XLORENs] ¡Sistema listo! Framework completo cargado.")
