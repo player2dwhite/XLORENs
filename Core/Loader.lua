@@ -1,76 +1,81 @@
 --[=[
-    XLORENs Core - Loader
+    XLORENs - Loader
+    Gestor de módulos con carga segura y manejo de errores.
 ]=]
 
 local XLORENs = {
     Modules = {},
     Services = {},
     Config = {},
-    Signals = {},
 }
 
-local function LoadModule(name, path)
-    local url = "https://raw.githubusercontent.com/player2dwhite/XLORENs/main/" .. path
-    print("[Loader] Cargando " .. name .. " desde " .. url)
-    
+local function SafeLoadModule(moduleName, filePath)
+    local url = "https://raw.githubusercontent.com/player2dwhite/XLORENs/main/" .. filePath
+    print("[Loader] Cargando " .. moduleName .. " desde " .. url)
+
     local success, result = pcall(function()
-        local raw = game:HttpGet(url)
-        if not raw or raw == "" then
+        local rawCode = game:HttpGet(url)
+        if not rawCode or rawCode == "" then
             error("El archivo está vacío o no se pudo descargar.")
         end
-        local func, err = loadstring(raw)
-        if not func then
-            error("Error de sintaxis en " .. name .. ": " .. tostring(err))
+        local compiledFunction, compileError = loadstring(rawCode)
+        if not compiledFunction then
+            error("Error de sintaxis en " .. moduleName .. ": " .. tostring(compileError))
         end
-        return func()
+        return compiledFunction()
     end)
 
     if success and result then
-        XLORENs.Modules[name] = result
-        print("[Loader] " .. name .. " cargado correctamente.")
+        XLORENs.Modules[moduleName] = result
+        print("[Loader] " .. moduleName .. " cargado correctamente.")
         return result
     else
-        warn("[Loader] Error cargando " .. name .. ": " .. tostring(result))
+        warn("[Loader] Error cargando " .. moduleName .. ": " .. tostring(result))
         return nil
     end
 end
 
-function XLORENs:Init()
-    -- NO cargamos UI desde GitHub (usamos la embebida de Main.lua)
+function XLORENs:Initialize()
+    -- No cargamos UI desde GitHub (se usa la embebida en Main.lua)
     self.UI = nil
 
-    -- Cargar ConsoleBypass
-    self.ConsoleBypass = LoadModule("ConsoleBypass", "Core/ConsoleBypass.lua") or {}
-    if self.ConsoleBypass and self.ConsoleBypass.Settings then
-        if self.ConsoleBypass.Settings.Enabled then
-            self.ConsoleBypass:Enable()
-        end
+    -- Módulo de silenciado de logs
+    self.ConsoleBypass = SafeLoadModule("ConsoleBypass", "Core/ConsoleBypass.lua") or {}
+    if self.ConsoleBypass and self.ConsoleBypass.Settings and self.ConsoleBypass.Settings.Enabled then
+        self.ConsoleBypass:Enable()
     end
 
-    -- Cargar Vision
-    self.WallChecker = LoadModule("WallChecker", "Vision/WallChecker.lua") or {}
-    if self.WallChecker and self.WallChecker.Init then
-        self.WallChecker:Init(self)
+    -- Motor de percepción
+    self.WallChecker = SafeLoadModule("WallChecker", "Vision/WallChecker.lua") or {}
+    if self.WallChecker and self.WallChecker.Initialize then
+        self.WallChecker:Initialize(self)
     end
 
-    -- Cargar Combat
-    self.TargetManager = LoadModule("TargetManager", "Combat/TargetManager.lua") or {}
-    if self.TargetManager and self.TargetManager.Init then
-        self.TargetManager:Init(self)
+    -- Gestor de objetivos
+    self.TargetManager = SafeLoadModule("TargetManager", "Combat/TargetManager.lua") or {}
+    if self.TargetManager and self.TargetManager.Initialize then
+        self.TargetManager:Initialize(self)
     end
 
-    self.Aimbot = LoadModule("Aimbot", "Combat/Aimbot.lua") or {}
-    if self.Aimbot and self.Aimbot.Init then
-        self.Aimbot:Init(self)
+    -- Aimbot
+    self.Aimbot = SafeLoadModule("Aimbot", "Combat/Aimbot.lua") or {}
+    if self.Aimbot and self.Aimbot.Initialize then
+        self.Aimbot:Initialize(self)
     end
 
-    -- Cargar ESP
-    self.Chams = LoadModule("Chams", "ESP/Chams.lua") or {}
-    if self.Chams and self.Chams.Init then
-        self.Chams:Init(self)
+    -- Movimiento
+    self.Movement = SafeLoadModule("Movement", "Combat/Movement.lua") or {}
+    if self.Movement and self.Movement.Initialize then
+        self.Movement:Initialize(self)
     end
 
-    print("[XLORENs] Loaded successfully!")
+    -- ESP
+    self.Chams = SafeLoadModule("Chams", "ESP/Chams.lua") or {}
+    if self.Chams and self.Chams.Initialize then
+        self.Chams:Initialize(self)
+    end
+
+    print("[XLORENs] Todos los módulos cargados exitosamente.")
     return self
 end
 
