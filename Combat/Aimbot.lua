@@ -1,5 +1,6 @@
 --[=[
     XLORENs - Aimbot v4 (orgánico)
+    Con offset humano, micro movimientos, deadzone, inercia, overshoot, etc.
 ]=]
 
 local Aimbot = {}
@@ -293,7 +294,7 @@ function Aimbot:_ApplyTurnSpeedLimit(currentLook, targetLook, dt)
         end
     end
     return targetLook
-}
+end
 
 function Aimbot:Update(target, dt)
     if not self.Settings.General.Enabled then
